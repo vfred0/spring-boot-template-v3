@@ -1,3 +1,5 @@
+name: spring-boot-template
+
 services:
   spring-boot-template-keycloak-db:
     image: postgres:18-alpine
