@@ -36,3 +36,5 @@ build/
 
 ### Gradle ###
 .gradle/
+### Generated docs (AsciiDoc render) ###
+docs/*.html
