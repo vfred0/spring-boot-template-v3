@@ -1,3 +1,11 @@
+# 0.1.1 (2026-06-11)
+
+### Spring Boot Template
+
+ * refactor  **keycloak:** rename realm to spring-boot-template for consistent project naming ([57d09e1](https://github.com/vfred0/spring-boot-template-v3/commit/57d09e1))
+ * docs  **keycloak:** beginner guide for realms and the three security modes ([326f344](https://github.com/vfred0/spring-boot-template-v3/commit/326f344))
+ * chore  **docker:** set compose project name to spring-boot-template ([7408ef4](https://github.com/vfred0/spring-boot-template-v3/commit/7408ef4))
+
 # 0.1.0 (2026-06-11)
 
 ### Spring Boot Template
