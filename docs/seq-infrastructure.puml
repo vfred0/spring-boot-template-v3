@@ -1,0 +1,40 @@
+@startuml infrastructure-overview
+
+title Infrastructure Overview — Docker Compose Components
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 8
+
+actor       "Developer / User"     as user
+participant "Angular"              as spa    #LightGray
+participant "jwt-demo :8081"       as app    #LightBlue
+participant "Keycloak :8080"       as kc     #LightGreen
+database    "postgres-app :5433"   as dbapp  #LightYellow
+database    "postgres :5432"       as dbkc   #LightYellow
+
+== Startup ==
+
+kc   -> dbkc  : stores realm, users, sessions
+app  -> dbapp : Flyway runs pending migrations
+app  -> kc    : reads OIDC config (introspection URL)
+
+== Login Request ==
+
+user -> spa   : enters credentials
+spa  -> app   : POST /api/auth/login
+app  -> kc    : POST /token (grant_type=password)
+kc   -> dbkc  : validates user
+dbkc --> kc   : user found
+kc   --> app  : { access_token, refresh_token }
+app  --> spa  : AT in body + RT in Set-Cookie
+
+== Authenticated Request ==
+
+spa  -> app   : GET /api/clients\nAuthorization: Bearer <AT>
+app  -> kc    : POST /introspect (validates AT)
+kc   --> app  : { active: true, roles, sub }
+app  -> dbapp : query business data
+dbapp --> app : result
+app  --> spa  : 200 OK
+
+@enduml

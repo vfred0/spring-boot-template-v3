@@ -1,0 +1,84 @@
+= jwt-demo — Security Architecture
+:toc: left
+:toclevels: 2
+:source-highlighter: highlight.js
+
+== Overview
+
+Spring Boot OAuth2 Resource Server with Keycloak as Authorization Server, optional DPoP (RFC 9449),
+and secure token storage following OWASP recommendations.
+
+== Token Storage Strategy
+
+[cols="1,1,2"]
+|===
+|Token |Storage |Why
+
+|`access_token`
+|JS memory (signal / variable)
+|Short-lived. Never persisted. Lost on page refresh → triggers silent refresh via RT cookie.
+
+|`refresh_token`
+|HttpOnly cookie (Secure + SameSite=Strict)
+|Set by backend via `Set-Cookie`. JS never reads it. Browser sends it automatically on refresh calls.
+|===
+
+IMPORTANT: The backend sets the RT cookie directly. The frontend never handles the RT value in JavaScript.
+This eliminates XSS exposure of the refresh token entirely.
+
+== Sequence Diagrams
+
+=== 1. Login Flow
+
+image::seq-login.puml[Login Flow]
+
+Backend proxies credentials to Keycloak, splits the response: RT goes into a `Set-Cookie` header,
+AT goes in the response body. After login, Angular calls `/api/me` to load roles and permissions.
+
+=== 2. Authenticated Request
+
+image::seq-authenticated-request.puml[Authenticated Request]
+
+Angular interceptor attaches the AT from memory. Every request validates the token against
+Keycloak `/introspect` in real time. On 401, the interceptor triggers a silent refresh.
+
+Filter chain order:
+----
+TraceIdResponseHeaderFilter
+  → BearerTokenAuthenticationFilter  (opaque token introspection)
+    → DpopAuthenticationFilter        (proof validation — optional)
+      → RateLimitingFilter
+        → Controller
+----
+
+=== 3. Token Refresh & Logout
+
+image::seq-refresh-logout.puml[Refresh and Logout]
+
+Refresh uses the RT cookie — Angular sends no RT in the body, the browser attaches the cookie automatically.
+Backend rotates both tokens and issues a new `Set-Cookie`. Logout revokes the RT in Keycloak and clears the cookie with `Max-Age=0`.
+
+== Key Design Decisions
+
+[cols="1,2"]
+|===
+|Decision |Reason
+
+|Opaque tokens over local JWT
+|Real-time revocation — no stale token window
+
+|Backend sets RT cookie via Set-Cookie
+|RT never exposed to JavaScript — eliminates XSS risk on the refresh token
+
+|AT stored in JS memory only
+|Not persisted — XSS can read it but only during the session window; short expiry limits damage
+
+|`/api/me` for roles and permissions
+|Decoupled from login response; reusable; roles live in app DB not in the token
+
+|DPoP (RFC 9449)
+|Sender-constrained tokens — stolen AT unusable without the client's private key
+
+|RBAC lives in app DB
+|Business roles and permissions are domain logic — Keycloak only provides identity
+|===

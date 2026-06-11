@@ -1,0 +1,64 @@
+@startuml authenticated-request-flow
+
+title Authenticated Request — AT in Memory + Opaque Token Introspection
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 8
+
+actor       "User"                           as user
+participant "Angular"                        as spa   #LightGray
+participant "Angular HTTP Interceptor"       as inter #LightGray
+participant "BearerTokenAuthFilter"          as btf   #Orange
+participant "KeycloakOpaqueTokenIntrospector" as intro #LightBlue
+participant "Keycloak /introspect"           as kc    #LightGreen
+participant "KeycloakOpaqueRoleConverter"    as conv  #LightBlue
+participant "DpopAuthenticationFilter"       as dpop  #LightCoral
+participant "Controller"                     as ctrl  #LightBlue
+database    "Your DB (RBAC)"                 as db    #LightYellow
+
+user  -> spa   : performs action
+spa   -> inter : outgoing HTTP request
+
+note over inter
+  Interceptor attaches AT from memory:
+  Authorization: Bearer <access_token>
+end note
+
+inter -> btf  : GET /api/clients\nAuthorization: Bearer <access_token>
+
+btf   -> intro : introspect(token)
+intro -> kc    : POST /introspect\nclient_id + client_secret + token
+
+alt token active
+    kc    --> intro : { active: true, sub, realm_access, resource_access, cnf.jkt }
+    intro -> conv   : convert(attributes)
+    conv  --> intro : [ROLE_user, ROLE_data_analyst, ...]
+    intro --> btf   : OAuth2AuthenticatedPrincipal
+
+    note over btf, dpop
+      Filter chain order:
+      TraceId → BearerTokenAuth → DPoP → RateLimit → Controller
+    end note
+
+    btf   -> dpop  : SecurityContext populated
+    dpop  -> ctrl  : authenticated
+    ctrl  -> db    : check permission('read:customers')
+    db    --> ctrl : allowed
+    ctrl  --> spa  : 200 OK + response body
+    spa   --> user : renders data
+
+else token expired (401)
+    kc    --> intro : { active: false }
+    intro --> btf   : OAuth2IntrospectionException
+    btf   --> inter : 401 Unauthorized
+
+    note over inter
+      Interceptor catches 401.
+      Triggers silent refresh before retrying.
+      See: seq-refresh.puml
+    end note
+
+    inter --> spa  : retry with new AT or redirect to login
+end
+
+@enduml

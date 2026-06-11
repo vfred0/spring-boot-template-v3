@@ -1,0 +1,69 @@
+@startuml refresh-logout-flow
+
+title Token Refresh (Cookie-based) & Logout
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 8
+
+actor       "User"                as user
+participant "Angular Interceptor" as inter  #LightGray
+participant "AuthController"      as ctrl   #LightBlue
+participant "KeycloakAuthService" as svc    #LightBlue
+participant "Keycloak"            as kc     #LightGreen
+
+== Silent Token Refresh (triggered by 401 or proactive on expiry) ==
+
+note over inter
+  Browser sends refresh_token cookie automatically.
+  Angular never reads it — it's HttpOnly.
+end note
+
+inter -> ctrl : POST /api/auth/refresh\nCookie: refresh_token=<value>\n(no body needed for RT)
+
+ctrl  -> svc  : refresh(cookie RT)
+svc   -> kc   : POST /token\ngrant_type=refresh_token\nrefresh_token=<value>
+
+alt refresh token valid
+    kc    --> svc  : { access_token, refresh_token, expires_in }
+
+    note over ctrl
+      Backend rotates both tokens:
+      - new refresh_token → Set-Cookie (replaces old)
+      - new access_token  → response body
+    end note
+
+    ctrl  --> inter : 200 OK\nSet-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Strict\n{ access_token, expires_in }
+    inter --> inter : updates AT in memory\nretries original request
+
+else refresh token expired / revoked
+    kc    --> svc  : 400 { error: invalid_grant }
+    svc   --> ctrl : throws KeycloakAuthException
+    ctrl  --> inter : 401
+    inter --> user  : redirect to login\n(session fully expired)
+end
+
+== Logout ==
+
+user  -> inter : clicks logout
+inter -> ctrl  : POST /api/auth/logout\nCookie: refresh_token=<value>
+
+ctrl  -> svc   : logout(cookie RT)
+svc   -> kc    : POST /revoke\ntoken=<refresh_token>
+
+kc    --> svc  : 200 OK
+note right of kc
+  Keycloak 26 always returns 200.
+  Token is invalidated server-side.
+end note
+
+ctrl  --> inter : 200 OK\nSet-Cookie: refresh_token=; Max-Age=0 (clears cookie)
+
+note over inter
+  Angular clears AT from memory.
+  Cookie cleared by Set-Cookie: Max-Age=0.
+  Redirect to login page.
+end note
+
+inter --> user  : logged out
+
+@enduml

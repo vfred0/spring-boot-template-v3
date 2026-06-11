@@ -1,0 +1,50 @@
+@startuml login-flow
+
+title OAuth2 Login — Secure Token Storage
+
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 8
+skinparam sequenceParticipant underline
+
+actor       "User"                as user
+participant "Angular"             as spa   #LightGray
+participant "AuthController"      as ctrl  #LightBlue
+participant "KeycloakAuthService" as svc   #LightBlue
+participant "Keycloak /token"     as kc    #LightGreen
+
+user -> spa  : enters credentials
+spa  -> ctrl : POST /api/auth/login\n{ username, password, clientId, clientSecret }
+ctrl -> svc  : login(request)
+svc  -> kc   : POST /token\ngrant_type=password\nscope=offline_access
+
+alt credentials valid
+    kc   --> svc  : { access_token, refresh_token, expires_in, ... }
+
+    note over ctrl
+      Backend splits the response:
+      - refresh_token → Set-Cookie (never exposed to JS)
+      - access_token  → response body only
+    end note
+
+    ctrl --> spa  : 200 OK\nSet-Cookie: refresh_token=...; HttpOnly; Secure; SameSite=Strict\n{ access_token, expires_in }
+
+    note over spa
+      Angular stores:
+      - access_token  → memory (JS variable / signal)
+      - refresh_token → browser manages cookie automatically
+      JS never reads the refresh_token
+    end note
+
+    spa  -> ctrl : GET /api/me\nAuthorization: Bearer <access_token>
+    ctrl --> spa  : { name, role, permissions: [...] }
+
+    spa  --> user : logged in, UI adapts to permissions
+
+else credentials invalid
+    kc   --> svc  : 401 { error: invalid_grant }
+    svc  --> ctrl : throws KeycloakAuthException
+    ctrl --> spa  : 401 { error: UNAUTHORIZED }
+    spa  --> user : login error
+end
+
+@enduml
