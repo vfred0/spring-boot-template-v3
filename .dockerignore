@@ -1,0 +1,49 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Build output
+build/
+target/
+out/
+bin/
+*.jar
+*.war
+
+# Gradle local state
+.gradle/
+
+# IDE / editor
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.project
+.classpath
+
+# Secrets and local env
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Docs and CI (not needed in build context)
+docs/
+*.md
+.github/
+docker-compose*.yaml
+Dockerfile
+.dockerignore
+
+# Logs and temp
+*.log
+tmp/
