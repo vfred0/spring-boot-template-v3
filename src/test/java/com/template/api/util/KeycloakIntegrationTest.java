@@ -37,7 +37,7 @@ public abstract class KeycloakIntegrationTest extends AbstractIntegrationTest {
     static void registerResourceServerIssuerProperty(DynamicPropertyRegistry registry) {
         if (keycloak != null && keycloak.isRunning()) {
             String authServerUrl = keycloak.getAuthServerUrl();
-            String realm = "my-realm";
+            String realm = "spring-boot-template";
 
             registry.add("keycloak.auth-server-url", () -> authServerUrl);
             registry.add("keycloak.realm", () -> realm);

@@ -1,5 +1,5 @@
 {
-  "realm": "my-realm",
+  "realm": "spring-boot-template",
   "enabled": true,
 
   "revokeRefreshToken": true,

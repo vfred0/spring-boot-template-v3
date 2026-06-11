@@ -68,7 +68,7 @@ APP_SECURITY_MODE=KEYCLOAK_JWT docker compose up -d jwt-demo   # local JWT valid
 ----
 
 If you cannot recreate the Keycloak volume, grant the role manually:
-admin console -> realm `my-realm` -> Clients -> `resource-server` ->
+admin console -> realm `spring-boot-template` -> Clients -> `resource-server` ->
 *Capability config*: enable _Service accounts roles_ -> *Service account roles*
 tab -> _Assign role_ -> filter by clients -> `realm-management` `manage-users`.
 
