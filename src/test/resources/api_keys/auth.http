@@ -1,0 +1,110 @@
+# IntelliJ HTTP Client — API_KEY mode RBAC probes
+#
+# Prerequisites:
+#   1. Run the app in API_KEY mode:  APP_SECURITY_MODE=API_KEY docker compose up -d
+#   2. Seed demo data + keys:        docker compose exec -T postgres-app psql -U app -d appdb < src/main/resources/db/seed/rbac_apikey_demo.sql
+#
+# demo-admin   -> role ADMIN         (all permissions + apikeys:manage)
+# demo-analyst -> role DATA_ANALYST  (customers:read, customers:update)
+
+@baseUrl = http://localhost:8081
+@adminKey = sk_live_demo_admin_key_AAAA
+@analystKey = sk_live_demo_analyst_key_BBBB
+
+### Issue a new API key for a subject (requires apikeys:manage) -> 201, raw key returned ONCE
+POST {{baseUrl}}/api/api-keys
+X-API-Key: {{adminKey}}
+Content-Type: application/json
+
+{
+  "subject": "demo-analyst",
+  "label": "key from IntelliJ"
+}
+
+> {%
+    client.test("issued", function () {
+        client.assert(response.status === 201, "expected 201, got " + response.status);
+        client.log("raw key (copy now, not retrievable): " + response.body.data.apiKey);
+    });
+%}
+
+### List keys for a subject -> 200 (never exposes the raw key)
+GET {{baseUrl}}/api/api-keys?subject=demo-analyst
+X-API-Key: {{adminKey}}
+
+### ADMIN: role ADMIN endpoint -> 200
+GET {{baseUrl}}/api/demo/admin
+X-API-Key: {{adminKey}}
+
+> {%
+    client.test("admin sees its authorities", function () {
+        client.assert(response.status === 200, "expected 200, got " + response.status);
+        client.assert(response.body.data.subject === "demo-admin", "wrong subject");
+    });
+%}
+
+### ADMIN: customers:read -> 200
+GET {{baseUrl}}/api/demo/customers/read
+X-API-Key: {{adminKey}}
+
+### ADMIN: reports:create -> 200
+GET {{baseUrl}}/api/demo/reports/create
+X-API-Key: {{adminKey}}
+
+### ANALYST: customers:read -> 200
+GET {{baseUrl}}/api/demo/customers/read
+X-API-Key: {{analystKey}}
+
+> {%
+    client.test("analyst limited authorities", function () {
+        client.assert(response.status === 200, "expected 200, got " + response.status);
+        client.assert(response.body.data.authorities.length === 3, "expected ROLE + 2 permissions");
+    });
+%}
+
+### ANALYST: customers:update -> 200
+GET {{baseUrl}}/api/demo/customers/update
+X-API-Key: {{analystKey}}
+
+### ANALYST: customers:delete -> 403 (no permission)
+GET {{baseUrl}}/api/demo/customers/delete
+X-API-Key: {{analystKey}}
+
+> {%
+    client.test("analyst forbidden on delete", function () {
+        client.assert(response.status === 403, "expected 403, got " + response.status);
+    });
+%}
+
+### ANALYST: reports:read -> 403 (no permission)
+GET {{baseUrl}}/api/demo/reports/read
+X-API-Key: {{analystKey}}
+
+### ANALYST: role ADMIN endpoint -> 403 (not an admin)
+GET {{baseUrl}}/api/demo/admin
+X-API-Key: {{analystKey}}
+
+> {%
+    client.test("analyst is not admin", function () {
+        client.assert(response.status === 403, "expected 403, got " + response.status);
+    });
+%}
+
+### No API key -> 401
+GET {{baseUrl}}/api/demo/admin
+
+> {%
+    client.test("missing key unauthorized", function () {
+        client.assert(response.status === 401, "expected 401, got " + response.status);
+    });
+%}
+
+### Invalid API key -> 401
+GET {{baseUrl}}/api/demo/customers/read
+X-API-Key: sk_live_does_not_exist
+
+> {%
+    client.test("invalid key unauthorized", function () {
+        client.assert(response.status === 401, "expected 401, got " + response.status);
+    });
+%}
