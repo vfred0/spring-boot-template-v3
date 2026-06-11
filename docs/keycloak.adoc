@@ -1,0 +1,304 @@
+= Keycloak — Guía para principiantes
+:toc: left
+:toclevels: 3
+:source-highlighter: highlight.js
+
+== ¿Qué es Keycloak?
+
+Keycloak es un *servidor de identidad y autenticación* (IAM / Authorization Server) de código
+abierto. En lugar de que cada aplicación guarde usuarios y contraseñas, esa responsabilidad se
+delega en Keycloak. Tu aplicación deja de preguntar "¿esta contraseña es correcta?" y pasa a
+preguntar "¿este token que me trae el usuario es válido?".
+
+Keycloak se encarga de:
+
+* Guardar usuarios, contraseñas (hasheadas con argon2), correos y datos de perfil.
+* Verificar credenciales y emitir *tokens* (credenciales temporales firmadas).
+* Permitir login social (Google, GitHub, etc.) y SSO (un solo login para varias apps).
+* Gestionar roles y permisos a nivel de identidad.
+
+[TIP]
+====
+La idea central: *Keycloak prueba quién sos (autenticación). Tu aplicación decide qué podés hacer
+(autorización).* En este proyecto los roles de negocio viven en la base de datos de la app, y
+Keycloak solo aporta la identidad.
+====
+
+== El concepto clave: el Realm
+
+Un *realm* (reino) es un *espacio aislado* dentro de Keycloak. Todo lo que vive dentro de un realm
+—usuarios, roles, clientes, configuración de tokens— es independiente de los demás realms.
+
+Pensalo como *edificios separados*: un usuario del realm A no existe en el realm B. Cada realm
+tiene sus propias llaves de firma, sus propios usuarios y su propia configuración de seguridad.
+
+[cols="1,3"]
+|===
+|Regla |Significado
+
+|Aislamiento total
+|Usuarios, clientes y roles de un realm no se ven desde otro realm.
+
+|Llaves propias
+|Cada realm firma sus tokens con su propio par de llaves. Un token de un realm no vale en otro.
+
+|`master` es especial
+|Keycloak trae un realm `master` solo para administrar Keycloak. *Nunca* pongas tus apps ahí.
+|===
+
+.Buena práctica
+[NOTE]
+====
+Creá *un realm por proyecto/organización*, no uno por aplicación. Varias apps de la misma
+organización (web, mobile, API) comparten el mismo realm para tener SSO entre ellas.
+
+En este proyecto el realm se llama `spring-boot-template` (definido en
+`keycloak/realm-export.json` y en `keycloak.realm` de `application.properties`).
+====
+
+=== Jerarquía: cómo se organiza todo
+
+----
+Keycloak (el servidor)
+└── Realm: spring-boot-template        ← espacio aislado de este proyecto
+    ├── Users                          ← personas: user, admin, ...
+    ├── Roles (realm roles)            ← ADMIN, CLIENT_CREATE, CLIENT_GET, ...
+    ├── Clients                        ← aplicaciones que hablan con Keycloak
+    │   ├── spring-app                 ← la app/front que hace login de usuarios
+    │   └── resource-server            ← la API (service account)
+    ├── Client Scopes                  ← qué claims/roles entran en el token
+    └── Identity Providers             ← Google, GitHub... (login social) [no configurado aún]
+----
+
+== Los actores dentro del Realm
+
+=== Users (usuarios)
+
+Las personas que se autentican. Tienen credenciales, correo y *roles asignados*. En el realm de
+ejemplo hay dos:
+
+[cols="1,2"]
+|===
+|Usuario |Roles
+
+|`user`
+|`CLIENT_CREATE`, `CLIENT_GET`, `CLIENT_SEARCH`, `UPDATE_BALANCE`
+
+|`admin`
+|`ADMIN`
+|===
+
+WARNING: Estos usuarios con contraseñas triviales (`user`/`password`, `admin`/`admin`) son *solo
+para desarrollo*. Un realm de producción no debe importar usuarios de prueba.
+
+=== Clients (clientes)
+
+Un *client* representa a una *aplicación* que confía en Keycloak (no a una persona). Hay dos tipos:
+
+[cols="1,1,2"]
+|===
+|Tipo |Tiene secreto |Ejemplo
+
+|*Confidential* (confidencial)
+|Sí (`client-secret`)
+|Backends que pueden guardar un secreto de forma segura.
+
+|*Public* (público)
+|No
+|SPAs/mobile, donde no se puede esconder un secreto.
+|===
+
+En este proyecto ambos clients son *confidenciales*:
+
+[cols="1,2"]
+|===
+|Client |Para qué sirve
+
+|`spring-app`
+|Representa la aplicación que hace login de usuarios (usuario + contraseña). Tiene activado
+`directAccessGrants` (flujo password) y `standardFlow` (flujo de redirección/código).
+
+|`resource-server`
+|Representa la API. Es una *service account* (cuenta de máquina, sin usuario humano) con permiso
+`manage-users` para crear usuarios vía la Admin API, y se usa para *introspección* de tokens.
+|===
+
+=== Roles
+
+Un *role* es una etiqueta de permiso. Hay dos niveles:
+
+* *Realm roles*: globales al realm (ej. `ADMIN`).
+* *Client roles*: específicos de un client.
+
+Los roles del usuario viajan dentro del token (en el claim `realm_access.roles`, configurado por
+un *protocol mapper* del scope `roles`).
+
+=== Client Scopes y Protocol Mappers
+
+Un *client scope* agrupa la información que se mete en el token. Un *protocol mapper* es la regla
+concreta que dice "tomá este dato del usuario y ponelo en este claim del token". Ejemplo del realm:
+el scope `roles` tiene un mapper que copia los roles del realm al claim `realm_access.roles`.
+
+== ¿Qué es un token y por qué hay varios?
+
+Cuando un usuario se autentica, Keycloak emite *tokens*: cadenas firmadas que prueban la identidad
+por un tiempo limitado.
+
+[cols="1,1,2"]
+|===
+|Token |Vida |Para qué
+
+|*Access Token (AT)*
+|Corta (5 min aquí)
+|Se envía en cada request a la API. Si lo roban, sirve poco tiempo.
+
+|*Refresh Token (RT)*
+|Larga
+|Sirve para pedir un nuevo AT sin volver a escribir la contraseña.
+
+|*ID Token*
+|Corta
+|Datos del usuario (OpenID Connect). Lo consume el cliente, no la API.
+|===
+
+.Rotación de refresh tokens (configurado en este realm)
+[NOTE]
+====
+`revokeRefreshToken: true` + `refreshTokenMaxReuse: 0` activan la *rotación*: cada vez que usás un
+RT para refrescar, Keycloak invalida el anterior y emite uno nuevo. Si alguien roba un RT viejo y lo
+reutiliza, Keycloak detecta el reúso y corta la sesión. Es una protección importante.
+====
+
+== Cómo se obtiene un token: los "flows"
+
+Un *flow* (flujo / grant type) es el procedimiento por el cual una app consigue un token. Los dos
+relevantes acá:
+
+=== 1. Password Grant (Direct Access Grants / ROPC)
+
+La app manda usuario + contraseña directo a Keycloak y recibe los tokens.
+
+----
+Usuario → App → Keycloak (/token con username+password) → tokens
+----
+
+Es el flujo que usa el endpoint `/api/auth/login` de este proyecto. Es simple, pero está
+*desaconsejado en OAuth 2.1* porque la app ve la contraseña. Solo es aceptable para apps de
+*primera parte* (tuyas y confiables).
+
+=== 2. Authorization Code Flow (con redirección)
+
+El usuario es *redirigido a la pantalla de Keycloak* (o de Google), escribe sus credenciales ahí, y
+vuelve a la app con un código que se canjea por tokens. La app *nunca ve la contraseña*.
+
+----
+Usuario → App → (redirige a) Keycloak/Google → login → (redirige de vuelta con code) → App → tokens
+----
+
+Es el flujo *recomendado* y el que se necesita para *login social*. En este realm `spring-app`
+tiene `standardFlow` activado, pero faltan `redirectUris` y un Identity Provider (Google) para que
+funcione de punta a punta.
+
+== Cómo encaja Keycloak en este proyecto
+
+La app soporta tres modos de seguridad (propiedad `app.security.mode`):
+
+[cols="1,2,2"]
+|===
+|Modo |Usa Keycloak |Cómo valida
+
+|`API_KEY`
+|No
+|Clave de API guardada en la base de datos de la app. Keycloak no participa.
+
+|`KEYCLOAK_OPAQUE` (default)
+|Sí
+|En cada request, la API pregunta a Keycloak `/introspect` si el token sigue vivo (revocación en
+tiempo real).
+
+|`KEYCLOAK_JWT`
+|Sí
+|La API valida la firma del token localmente con las llaves públicas del realm (`/certs`), sin
+llamar a Keycloak en cada request.
+|===
+
+.Opaque vs JWT — la diferencia práctica
+[cols="1,2"]
+|===
+|Aspecto |Resumen
+
+|Opaque (introspección)
+|Más seguro (revocación inmediata), pero una llamada de red por request.
+
+|JWT (firma local)
+|Más rápido (sin red), pero el token sigue siendo válido hasta que expira aunque se revoque.
+|===
+
+== Glosario rápido
+
+[cols="1,3"]
+|===
+|Término |Significado en una línea
+
+|Realm
+|Espacio aislado con sus propios usuarios, clientes, roles y llaves.
+
+|Client
+|Una aplicación (no una persona) que confía en Keycloak.
+
+|Service Account
+|Un "client" que actúa como máquina, sin usuario humano detrás.
+
+|Token
+|Credencial temporal firmada que prueba la identidad.
+
+|Claim
+|Un dato dentro del token (ej. `sub`, `email`, `realm_access.roles`).
+
+|Scope / Mapper
+|Reglas que deciden qué datos del usuario entran en el token.
+
+|Introspection
+|Preguntarle a Keycloak en vivo si un token sigue siendo válido.
+
+|Identity Provider (IdP)
+|Un proveedor externo de login, como Google o GitHub.
+
+|Grant / Flow
+|El procedimiento para obtener un token (password, authorization code, etc.).
+|===
+
+== Probarlo localmente
+
+Levantá Keycloak (importa el realm automáticamente):
+
+[source,bash]
+----
+docker compose --profile keycloak up
+----
+
+* Consola de administración: `http://localhost:8080` (usuario/clave de admin según tu `.env`).
+* Dentro de la consola, seleccioná el realm `spring-boot-template` arriba a la izquierda para ver
+  sus usuarios, clientes y roles.
+
+Pedir un token a mano (flujo password):
+
+[source,bash]
+----
+curl -X POST \
+  http://localhost:8080/realms/spring-boot-template/protocol/openid-connect/token \
+  -d "client_id=spring-app" \
+  -d "client_secret=<secret-de-spring-app>" \
+  -d "grant_type=password" \
+  -d "username=user" \
+  -d "password=password"
+----
+
+La respuesta trae `access_token` y `refresh_token`. Ese mismo intercambio es el que hace por vos el
+endpoint `/api/auth/login`.
+
+== Para seguir aprendiendo
+
+* Documentación oficial: https://www.keycloak.org/documentation
+* OpenID Connect explicado: https://openid.net/developers/how-connect-works/
+* En este repo: `docs/README.adoc` (arquitectura de seguridad) y los diagramas `docs/seq-*.puml`.
