@@ -1,0 +1,129 @@
+= JWT Access Token + Refresh Token Cookie — Manual Testing Guide
+:toc: macro
+:toclevels: 2
+
+How to prove the full credential lifecycle — register, login, use the access
+token, rotate the refresh token, logout — using only the HTTP API. The runnable
+companion is `auth.http` (next to this file).
+
+toc::[]
+
+== Mental model
+
+Two tokens, two transports. Mixing them up is the usual source of confusion.
+
+[source]
+----
+ LOGIN RESPONSE
+ ├── body:   access_token   -> short-lived, sent by the client as
+ │                             Authorization: Bearer <token>
+ └── cookie: refresh_token  -> long-lived, HttpOnly, the client JS
+                               NEVER sees it; the browser replays it
+                               automatically on /api/auth/* calls
+----
+
+* *Access token (AT)* — a Keycloak JWT, ~5 min lifespan (`accessTokenLifespan`).
+  Travels in the response *body* so the SPA can attach it to API calls.
+* *Refresh token (RT)* — set by `RefreshTokenCookieWriter` as a cookie with
+  `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/auth`. XSS code cannot
+  read it; CSRF cannot replay it cross-site; it is only ever sent to the
+  auth endpoints.
+* *Registration* — `POST /api/auth/register` proxies the Keycloak Admin API
+  using the `resource-server` *service account* (`client_credentials` grant,
+  `manage-users` role). Passwords are hashed *by Keycloak* with **argon2**
+  (the default since Keycloak 24). The application database stores NO
+  credentials.
+
+[IMPORTANT]
+====
+The cookie flow is *mode-independent*: it behaves identically under
+`KEYCLOAK_OPAQUE` (default) and `KEYCLOAK_JWT`, because `/api/auth/**` is
+`permitAll` in both chains. The mode only changes how the *access token* is
+validated on protected endpoints (introspection call vs. local JWKS check).
+`API_KEY` mode does not expose `/api/auth/**` at all.
+====
+
+== Prerequisites
+
+. Environment file — copy `.env.example` to `.env` and set
+  `KEYCLOAK_RESOURCE_CLIENT_ID=resource-server` and its secret (must match
+  `keycloak/realm-export.json`).
+. Keycloak with the *updated* realm import. Registration needs the
+  `resource-server` service account with the `manage-users` role, and login
+  needs `offline_access` to be an *optional* (not default) client scope on
+  `spring-app`; realms imported before these changes lack both
+  (`--import-realm` skips existing realms):
++
+[source,bash]
+----
+docker compose --profile keycloak down -v
+docker compose --profile keycloak up -d
+----
+. The application in a Keycloak mode:
++
+[source,bash]
+----
+docker compose up -d jwt-demo                                  # KEYCLOAK_OPAQUE (default)
+APP_SECURITY_MODE=KEYCLOAK_JWT docker compose up -d jwt-demo   # local JWT validation
+----
+
+If you cannot recreate the Keycloak volume, grant the role manually:
+admin console -> realm `my-realm` -> Clients -> `resource-server` ->
+*Capability config*: enable _Service accounts roles_ -> *Service account roles*
+tab -> _Assign role_ -> filter by clients -> `realm-management` `manage-users`.
+
+== Walkthrough (auth.http)
+
+Run the requests top-to-bottom; each carries assertions that fail loudly.
+
+[cols="1,3,3"]
+|===
+|# |Request |Proves
+
+|1 |`POST /api/auth/register` |User created in Keycloak (201). Re-run → 409.
+|2 |`POST /api/auth/login` |200, AT in `data.access_token`, `Set-Cookie:
+refresh_token=...; HttpOnly; Secure; SameSite=Strict; Path=/api/auth`.
+|3 |`GET /api/me` + Bearer AT |The AT authenticates protected endpoints.
+|4 |`POST /api/auth/refresh` + cookie |New AT issued, cookie *rotated*
+(new `Set-Cookie`).
+|5 |`POST /api/auth/refresh` without cookie |401 — the cookie is the only
+accepted RT transport.
+|6 |`POST /api/auth/logout` + cookie |RT revoked in Keycloak, cookie cleared
+(`Max-Age=0`).
+|7 |`POST /api/auth/refresh` with the revoked RT |401 — logout really revoked it.
+|8 |`POST /api/auth/register` with blank fields |400 with localized
+validation errors.
+|===
+
+== Why the .http file sends the cookie explicitly
+
+The cookie carries the `Secure` attribute, and this walkthrough talks to
+`http://localhost`. HTTP clients differ in whether they replay `Secure`
+cookies over plain HTTP, so each request extracts the value from the
+`Set-Cookie` response header and sends it back explicitly as
+`Cookie: refresh_token=...` — byte-for-byte what a browser would send over
+HTTPS. The *server-side* contract (issue, rotate, revoke, clear) is what is
+being verified, and it is fully exercised.
+
+== Gotchas
+
+* *Standard refresh tokens, not offline* — login issues a *standard* RT tied
+  to the SSO session (`ssoSessionIdleTimeout`), so `refresh_expires_in` is a
+  real positive value and the cookie gets a sane `Max-Age`. Offline tokens
+  were deliberately dropped: they require every user to hold the
+  `offline_access` realm role (registered users do not), and they made
+  Keycloak report `refresh_expires_in: 0`, which as cookie `Max-Age=0` told
+  browsers to discard the RT immediately. The `offline_access` scope is now
+  *optional* in the realm — nothing requests it.
+* *ROPC is legacy* — login uses `grant_type=password`, removed in OAuth 2.1.
+  Fine for a template and machine-to-machine tests; do not ship it to human
+  end users without understanding the tradeoff.
+* *409 on register* — username already taken in the realm. Change
+  `registerUsername` in `../http-client.env.json` or delete the user in the
+  admin console.
+* *503 on register* — the service account token failed. Almost always the
+  realm predates the `manage-users` grant; re-import the realm (see
+  prerequisites).
+* *DPoP* — auth endpoints accept an optional `DPoP` proof header and forward
+  it to Keycloak; the walkthrough omits it since the demo clients are not
+  DPoP-bound.

@@ -1,0 +1,181 @@
+###############################################################################
+# JWT ACCESS TOKEN + REFRESH TOKEN COOKIE — manual walkthrough
+# (IntelliJ HTTP Client / VS Code REST Client)
+#
+# Run TOP-TO-BOTTOM. Goal: prove the full credential lifecycle:
+#
+#   register (Keycloak Admin API via backend)
+#     -> login    (access token in body, refresh token in HttpOnly cookie)
+#     -> /api/me  (access token works against a protected endpoint)
+#     -> refresh  (cookie exchanged for new tokens, cookie rotated)
+#     -> logout   (refresh token revoked, cookie cleared)
+#     -> refresh after logout MUST fail with 401
+#
+# WHY THE COOKIE IS PASSED EXPLICITLY: the cookie is written with `Secure`,
+# so HTTP clients may refuse to replay it over plain http://localhost.
+# Each step extracts it from the Set-Cookie response header and sends it
+# back via an explicit `Cookie:` header — same bytes a browser would send.
+#
+# PREREQUISITES (see README.adoc next to this file):
+#   1. Keycloak with the UPDATED realm import (service account needs
+#      manage-users — re-import if your volume predates this change):
+#        docker compose --profile keycloak down -v
+#        docker compose --profile keycloak up -d
+#   2. App in a Keycloak mode (KEYCLOAK_OPAQUE default or KEYCLOAK_JWT —
+#      the cookie flow is identical in both; API_KEY mode has no /api/auth):
+#        docker compose up -d jwt-demo
+###############################################################################
+
+@names = John Doe
+
+### 1. REGISTER — creates the user in Keycloak (argon2-hashed password)
+# Re-running this request returns 409 CONFLICT (user already exists).
+# @name register
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "{{registerUsername}}",
+  "password": "{{registerPassword}}",
+  "names": "{{names}}"
+}
+
+> {%
+    client.test("register returns 201 (or 409 on re-run)", () =>
+        client.assert(response.status === 201 || response.status === 409,
+            `Unexpected status ${response.status}`));
+%}
+
+### 2. LOGIN — access token in body, refresh token in HttpOnly cookie
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "{{registerUsername}}",
+  "password": "{{registerPassword}}",
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
+
+> {%
+    client.test("login returns 200", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+    client.test("access token present in body", () =>
+        client.assert(!!response.body.data.access_token, "No access_token in body"));
+
+    const setCookie = response.headers.valuesOf("Set-Cookie")
+        .find(c => c.startsWith("refresh_token="));
+    client.test("refresh_token cookie is set", () =>
+        client.assert(!!setCookie, "No refresh_token Set-Cookie header"));
+    client.test("cookie is HttpOnly", () =>
+        client.assert(setCookie.includes("HttpOnly"), setCookie));
+    client.test("cookie is Secure + SameSite=Strict", () =>
+        client.assert(setCookie.includes("Secure") && setCookie.includes("SameSite=Strict"), setCookie));
+    client.test("cookie scoped to /api/auth", () =>
+        client.assert(setCookie.includes("Path=/api/auth"), setCookie));
+
+    client.global.set("accessToken", response.body.data.access_token);
+    client.global.set("refreshToken",
+        setCookie.split(";")[0].substring("refresh_token=".length));
+%}
+
+### 3. PROTECTED ENDPOINT — the access token authenticates real requests
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{accessToken}}
+
+> {%
+    client.test("access token grants access", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+%}
+
+### 4. REFRESH — exchange the cookie for new tokens; cookie must rotate
+# @name refresh
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+Cookie: refresh_token={{refreshToken}}
+
+{
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
+
+> {%
+    client.test("refresh returns 200", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+    client.test("new access token issued", () =>
+        client.assert(!!response.body.data.access_token, "No access_token"));
+
+    const setCookie = response.headers.valuesOf("Set-Cookie")
+        .find(c => c.startsWith("refresh_token="));
+    client.test("refresh_token cookie rotated", () =>
+        client.assert(!!setCookie, "No rotated Set-Cookie header"));
+
+    client.global.set("accessToken", response.body.data.access_token);
+    client.global.set("refreshToken",
+        setCookie.split(";")[0].substring("refresh_token=".length));
+%}
+
+### 5. REFRESH WITHOUT COOKIE — must be rejected
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
+
+> {%
+    client.test("missing cookie -> 401", () =>
+        client.assert(response.status === 401, `Got ${response.status}`));
+%}
+
+### 6. LOGOUT — revokes the refresh token and clears the cookie
+POST {{baseUrl}}/api/auth/logout
+Content-Type: application/json
+Cookie: refresh_token={{refreshToken}}
+
+{
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
+
+> {%
+    client.test("logout returns 200", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+
+    const setCookie = response.headers.valuesOf("Set-Cookie")
+        .find(c => c.startsWith("refresh_token="));
+    client.test("cookie cleared (Max-Age=0)", () =>
+        client.assert(!!setCookie && setCookie.includes("Max-Age=0"), setCookie));
+%}
+
+### 7. REFRESH AFTER LOGOUT — revoked token must be rejected
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+Cookie: refresh_token={{refreshToken}}
+
+{
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
+
+> {%
+    client.test("revoked refresh token -> 401", () =>
+        client.assert(response.status === 401, `Got ${response.status}`));
+%}
+
+### 8. (NEGATIVE) REGISTER with blank fields — bean validation
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "",
+  "password": "",
+  "names": ""
+}
+
+> {%
+    client.test("blank payload -> 400", () =>
+        client.assert(response.status === 400, `Got ${response.status}`));
+%}

@@ -1,0 +1,125 @@
+= RBAC + API Key — Manual Testing Guide
+:toc: macro
+:toclevels: 2
+
+How to create a role with its permissions and obtain an API key bound to it, end to
+end, using only the HTTP API. The runnable companion is `rbac.http` (next to this file).
+
+toc::[]
+
+== Mental model
+
+Four pieces and one bridge. Getting the bridge wrong is the usual cause of `403`.
+
+[source]
+----
+ API KEY            SUBJECT              ROLE                PERMISSION
+ (authentication)   (identity string)   (named bundle)      (capability resource:action)
+       |                  |                   |                     |
+ api_keys.subject == user_roles.keycloak_sub  ->  roles  ->  role_permissions  ->  permissions
+----
+
+* *Permission* — an atomic capability written `resource:action` (e.g. `customers:read`).
+  Lives in a shared catalog and is reusable across roles.
+* *Role* — a named bundle that _references_ catalog permissions (e.g. `DEVELOPER`).
+* *Subject* — an arbitrary, *case-sensitive* identity string (e.g. `developer`).
+* *API key* — an authentication credential that belongs to a subject.
+
+[IMPORTANT]
+====
+The bridge is `api_keys.subject == user_roles.keycloak_sub`, character for character.
+The role *name* becomes the authority `ROLE_<name>` (so role `DEVELOPER` => `ROLE_DEVELOPER`,
+matched by `hasRole('DEVELOPER')`). The subject `developer` is a different thing from the
+role name `DEVELOPER`. Keep each spelled identically everywhere or you get `403`.
+====
+
+== Prerequisites
+
+API keys are only honored in `API_KEY` mode. The default mode is `KEYCLOAK_OPAQUE`, where
+the `X-API-Key` header is ignored and every call returns `401`.
+
+[source,bash]
+----
+# 1. Run the app in API_KEY mode
+APP_SECURITY_MODE=API_KEY docker compose up -d --force-recreate jwt-demo
+
+# 2. Seed the one-time bootstrap admin key
+docker compose exec -T postgres-app psql -U app -d appdb \
+  < src/main/resources/db/seed/rbac_apikey_demo.sql
+----
+
+The seed creates exactly one credential able to manage everything else through the API:
+
+[cols="1,1,1",options="header"]
+|===
+| Subject | Role | Raw key
+| `demo-admin` | `ADMIN` (holds `rbac:manage` + `apikeys:manage`) | `sk_live_demo_admin_key_AAAA`
+|===
+
+== Endpoint reference
+
+[cols="1,3,3",options="header"]
+|===
+| Method | Path | Purpose
+| `POST`   | `/api/rbac/permissions`                         | Create a catalog permission (`201` / `409`)
+| `GET`    | `/api/rbac/permissions`                         | List the catalog
+| `POST`   | `/api/rbac/roles`                               | Create a role (`201` / `409`)
+| `GET`    | `/api/rbac/roles`                               | List roles + their permissions
+| `POST`   | `/api/rbac/roles/{roleId}/permissions`          | Attach permissions (additive)
+| `PATCH`  | `/api/rbac/roles/{roleId}/permissions`          | Replace the whole permission set
+| `DELETE` | `/api/rbac/roles/{roleId}/permissions/{r}/{a}`  | Detach one permission
+| `PUT`    | `/api/rbac/users/{subject}/role`                | Assign a role to a subject (upsert)
+| `DELETE` | `/api/rbac/users/{subject}/role`                | Unassign (`404` if none)
+| `DELETE` | `/api/rbac/roles/{roleId}`                      | Delete a role (`409` if still assigned)
+| `POST`   | `/api/api-keys`                                 | Issue a key for a subject (raw key shown *once*)
+| `GET`    | `/api/api-keys?subject=...`                     | List a subject's keys (no raw key)
+| `DELETE` | `/api/api-keys/{id}`                            | Revoke a key
+|===
+
+All `/api/rbac/**` calls require authority `rbac:manage`; `/api/api-keys/**` requires
+`apikeys:manage`. The seeded `demo-admin` key holds both.
+
+== Walkthrough
+
+Every step below maps 1:1 to a request in `rbac.http`. Scenario: role `DEVELOPER` with
+`customers:read` + `customers:update`, bound to subject `developer`.
+
+. *Create the permissions* (`customers:read`, `customers:update`). Attaching an unknown
+  permission later returns `400`, so the catalog entries must exist first.
+. *Create the role* `DEVELOPER`.
+. *Resolve the role id* from `GET /api/rbac/roles` (works new or pre-existing).
+. *Attach the permissions* to the role via `POST /api/rbac/roles/{id}/permissions`.
+. *Issue the API key* for subject `developer`. The raw key is returned *once* — save it.
+. *Assign the role* `DEVELOPER` to subject `developer`.
+. *Verify*: the key now carries `ROLE_DEVELOPER`, `customers:read`, `customers:update`.
+
+[TIP]
+Authorities are computed per request at authentication time. Changing a role's permissions
+takes effect on the *next* request made with an affected key — no key re-issue needed.
+
+== Changing a role's permissions
+
+[cols="1,2",options="header"]
+|===
+| Verb | Effect
+| `POST`   | *Add* — keeps existing, adds the listed permissions
+| `PATCH`  | *Replace* — role ends up with exactly the listed set
+| `DELETE` | *Detach* — removes one permission from the role (catalog entry kept)
+|===
+
+== Deleting a role safely
+
+A role still assigned to a subject returns `409`. Unassign first, then delete. Deletion
+cascades only the role↔permission associations; the permission catalog stays intact.
+
+== Error reference
+
+[cols="1,1,4",options="header"]
+|===
+| Status | Code | When
+| `401` | `UNAUTHORIZED` | No/invalid key, *or app not in `API_KEY` mode* (header ignored)
+| `403` | `FORBIDDEN`    | Authenticated but lacks the authority (often a subject↔role case mismatch)
+| `400` | `BAD_REQUEST`  | Attaching a permission absent from the catalog; invalid body
+| `404` | `NOT_FOUND`    | Role or assignment does not exist
+| `409` | `CONFLICT`     | Duplicate role/permission, or deleting a role still in use
+|===

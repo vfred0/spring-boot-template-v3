@@ -1,0 +1,179 @@
+###############################################################################
+# RBAC + API KEY — manual walkthrough (IntelliJ HTTP Client / VS Code REST Client)
+#
+# Run TOP-TO-BOTTOM. Idempotent: re-running is safe (409 = already exists).
+# Goal: create a role with permissions, then obtain an API key bound to it.
+#
+#   permissions  ->  role DEVELOPER  ->  attach permissions
+#                ->  issue API key for subject 'developer'  ->  assign role  ->  verify
+#
+# THE BRIDGE (see README.adoc): api_keys.subject == user_roles.keycloak_sub,
+# CASE-SENSITIVE. The role NAME "DEVELOPER" becomes the authority ROLE_DEVELOPER.
+# The SUBJECT "developer" is the identity the key belongs to. They are NOT the same
+# thing — keep each spelled identically everywhere.
+#
+# PREREQUISITES:
+#   1. App in API_KEY mode (default KEYCLOAK_OPAQUE ignores X-API-Key -> 401):
+#        APP_SECURITY_MODE=API_KEY docker compose up -d --force-recreate jwt-demo
+#   2. Seed the bootstrap admin key (one-time):
+#        docker compose exec -T postgres-app psql -U app -d appdb \
+#          < src/main/resources/db/seed/rbac_apikey_demo.sql
+###############################################################################
+
+@baseUrl = http://localhost:8081
+@adminKey = sk_live_demo_admin_key_AAAA
+@role = DEVELOPER
+@subject = developer
+
+### 1a. Create permission customers:read in the catalog -> 201, or 409 if it exists
+POST {{baseUrl}}/api/rbac/permissions
+X-API-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "rxesource": "customers", "action": x"read" }
+
+> {%
+    client.test("permission customers:read present", () =>
+        client.assert(response.status === 201 || response.status === 409,
+            "expected 201 or 409, got " + response.status));
+%}
+
+### 1b. Create permission customers:update -> 201, or 409 if it exists
+POST {{baseUrl}}/api/rbac/permissions
+X-API-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "resource": "customers", "action": "update" }
+
+> {%
+    client.test("permission customers:update present", () =>
+        client.assert(response.status === 201 || response.status === 409,
+            "expected 201 or 409, got " + response.status));
+%}
+
+### 2. Create the role DEVELOPER -> 201, or 409 if it exists
+POST {{baseUrl}}/api/rbac/roles
+X-API-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "name": "{{role}}", "description": "Bulk customers access" }
+
+> {%
+    client.test("role exists or was created", () =>
+        client.assert(response.status === 201 || response.status === 409,
+            "expected 201 or 409, got " + response.status));
+%}
+
+### 3. Resolve the role id (works whether the role is new or pre-existing)
+GET {{baseUrl}}/api/rbac/roles
+X-API-Key: {{adminKey}}
+
+> {%
+    client.test("DEVELOPER role resolved", () => {
+        client.assert(response.status === 200, "expected 200, got " + response.status);
+        const role = response.body.data.find(r => r.name === client.global.get("role"));
+        client.assert(role, "role DEVELOPER not found");
+        client.global.set("roleId", role.id);
+    });
+%}
+
+### 4. Attach the catalog permissions to the role (additive) -> 200
+POST {{baseUrl}}/api/rbac/roles/{{roleId}}/permissions
+X-API-Key: {{adminKey}}
+Content-Type: application/json
+
+{
+  "permissions": [
+    { "resource": "customers", "action": "read" },
+    { "resource": "customers", "action": "update" }
+  ]
+}
+
+> {%
+    client.test("permissions attached", () => {
+        client.assert(response.status === 200, "expected 200, got " + response.status);
+        client.assert(response.body.data.permissions.indexOf("customers:read") !== -1, "missing customers:read");
+    });
+%}
+
+### 5. Issue an API key for subject 'developer' -> 201. RAW key returned ONCE -> {{developerKey}}
+POST {{baseUrl}}/api/api-keys
+X-API-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "subject": "{{subject}}", "label": "developer cli key" }
+
+> {%
+    client.test("api key issued", () => {
+        client.assert(response.status === 201, "expected 201, got " + response.status);
+        client.assert(response.body.data.apiKey, "raw key missing");
+    });
+    client.global.set("developerKey", response.body.data.apiKey);
+    client.log("==> developerKey (shown once): " + response.body.data.apiKey);
+%}
+
+### 6. Assign role DEVELOPER to subject 'developer' -> 200 (upsert)
+PUT {{baseUrl}}/api/rbac/users/{{subject}}/role
+X-API-Key: {{adminKey}}
+Content-Type: application/json
+
+{ "role": "{{role}}" }
+
+> {%
+    client.test("role assigned", () => {
+        client.assert(response.status === 200, "expected 200, got " + response.status);
+        client.assert(response.body.data.name === client.global.get("role"), "wrong role assigned");
+    });
+%}
+
+### 7. VERIFY the key works for its permission -> 200 (has customers:read)
+GET {{baseUrl}}/api/demo/customers/read
+X-API-Key: {{developerKey}}
+
+> {%
+    client.test("developer key granted customers:read", () => {
+        client.assert(response.status === 200, "expected 200, got " + response.status);
+        client.assert(response.body.data.authorities.indexOf("customers:read") !== -1, "missing customers:read authority");
+    });
+%}
+
+### 8. VERIFY scope: the key lacks customers:delete -> 403 (authenticated, but forbidden)
+GET {{baseUrl}}/api/demo/customers/delete
+X-API-Key: {{developerKey}}
+
+> {%
+    client.test("developer key forbidden on customers:delete", () =>
+        client.assert(response.status === 403, "expected 403, got " + response.status));
+%}
+
+### 9. VERIFY auth-first: no key -> 401 (request never reaches the endpoint)
+GET {{baseUrl}}/api/demo/customers/read
+
+> {%
+    client.test("missing key is unauthorized", () =>
+        client.assert(response.status === 401, "expected 401, got " + response.status));
+%}
+
+###############################################################################
+# CLEANUP (optional) — unassign the subject, then delete the role.
+# Deleting a role still assigned to a subject returns 409, so order matters.
+# Permissions stay in the catalog (they are shared); only the role is removed.
+###############################################################################
+
+### 10. Unassign the role from subject 'developer' -> 204
+DELETE {{baseUrl}}/api/rbac/users/{{subject}}/role
+X-API-Key: {{adminKey}}
+
+> {%
+    client.test("role unassigned", () =>
+        client.assert(response.status === 204, "expected 204, got " + response.status));
+%}
+
+### 11. Delete the role -> 204 (would be 409 before step 10)
+DELETE {{baseUrl}}/api/rbac/roles/{{roleId}}
+X-API-Key: {{adminKey}}
+
+> {%
+    client.test("role deleted", () =>
+        client.assert(response.status === 204, "expected 204, got " + response.status));
+%}
