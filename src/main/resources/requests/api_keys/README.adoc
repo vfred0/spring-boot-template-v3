@@ -41,10 +41,10 @@ the `X-API-Key` header is ignored and every call returns `401`.
 [source,bash]
 ----
 # 1. Run the app in API_KEY mode
-APP_SECURITY_MODE=API_KEY docker compose up -d --force-recreate jwt-demo
+APP_SECURITY_MODE=API_KEY docker compose up -d --force-recreate spring-boot-template
 
 # 2. Seed the one-time bootstrap admin key
-docker compose exec -T postgres-app psql -U app -d appdb \
+docker compose exec -T spring-boot-template-db psql -U spring-boot-template -d spring-boot-template \
   < src/main/resources/db/seed/rbac_apikey_demo.sql
 ----
 

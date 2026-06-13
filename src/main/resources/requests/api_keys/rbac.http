@@ -14,9 +14,10 @@
 #
 # PREREQUISITES:
 #   1. App in API_KEY mode (default KEYCLOAK_OPAQUE ignores X-API-Key -> 401):
-#        APP_SECURITY_MODE=API_KEY docker compose up -d --force-recreate jwt-demo
+#        APP_SECURITY_MODE=API_KEY docker compose up -d --force-recreate spring-boot-template
 #   2. Seed the bootstrap admin key (one-time):
-#        docker compose exec -T postgres-app psql -U app -d appdb \
+#        docker compose exec -T spring-boot-template-db \
+#          psql -U spring-boot-template -d spring-boot-template \
 #          < src/main/resources/db/seed/rbac_apikey_demo.sql
 ###############################################################################
 
@@ -30,7 +31,7 @@ POST {{baseUrl}}/api/rbac/permissions
 X-API-Key: {{adminKey}}
 Content-Type: application/json
 
-{ "rxesource": "customers", "action": x"read" }
+{ "resource": "customers", "action": "read" }
 
 > {%
     client.test("permission customers:read present", () =>

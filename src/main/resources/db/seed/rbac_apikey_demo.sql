@@ -6,7 +6,7 @@
 --   demo-admin (role ADMIN)  raw key: sk_live_demo_admin_key_AAAA
 --
 -- Apply against the application DB, e.g.:
---   docker compose exec -T postgres-app psql -U app -d appdb < src/main/resources/db/seed/rbac_apikey_demo.sql
+--   docker compose exec -T spring-boot-template-db psql -U spring-boot-template -d spring-boot-template < src/main/resources/db/seed/rbac_apikey_demo.sql
 --
 -- Self-contained: recreates the ADMIN role if it was deleted, so re-running this
 -- always restores a working admin even after the role was removed via the API.

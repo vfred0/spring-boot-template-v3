@@ -1,4 +1,4 @@
-= jwt-demo — Security Architecture
+= spring-boot-template — Security Architecture
 :toc: left
 :toclevels: 2
 :source-highlighter: highlight.js

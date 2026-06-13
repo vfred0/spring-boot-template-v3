@@ -7,9 +7,9 @@ skinparam roundcorner 8
 
 actor       "Developer / User"     as user
 participant "Angular"              as spa    #LightGray
-participant "jwt-demo :8081"       as app    #LightBlue
+participant "spring-boot-template :8081"       as app    #LightBlue
 participant "Keycloak :8080"       as kc     #LightGreen
-database    "postgres-app :5433"   as dbapp  #LightYellow
+database    "spring-boot-template-db :5433"   as dbapp  #LightYellow
 database    "postgres :5432"       as dbkc   #LightYellow
 
 == Startup ==
