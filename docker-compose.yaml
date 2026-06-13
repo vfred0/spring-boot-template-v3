@@ -55,7 +55,7 @@ services:
       - "8081:8081"
     environment:
       SPRING_PROFILES_ACTIVE: local
-      APP_SECURITY_MODE: ${APP_SECURITY_MODE:-KEYCLOAK_OPAQUE}
+      APP_SECURITY_MODE: ${APP_SECURITY_MODE:-KEYCLOAK_JWT}
       KEYCLOAK_AUTH_SERVER_URL: http://keycloak:8080
       SPRING_DATASOURCE_URL: jdbc:postgresql://spring-boot-template-db:5432/spring-boot-template
       SPRING_DATASOURCE_USERNAME: spring-boot-template
