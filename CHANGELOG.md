@@ -1,3 +1,12 @@
+# 0.1.2 (2026-06-13)
+
+### Spring Boot Template
+
+ * bug fix  **requests:** repair invalid JSON payload in the api_keys RBAC walkthrough ([a50c22c](https://github.com/vfred0/spring-boot-template-v3/commit/a50c22c))
+ * docs  **requests:** add RBAC management walkthrough for the keycloak-jwt profile ([2a7846f](https://github.com/vfred0/spring-boot-template-v3/commit/2a7846f))
+ * docs  **requests:** move keycloak auth walkthrough to keycloak-jwt and align naming ([3158f19](https://github.com/vfred0/spring-boot-template-v3/commit/3158f19))
+ * chore  **docker:** default compose security mode to KEYCLOAK_JWT ([6f96828](https://github.com/vfred0/spring-boot-template-v3/commit/6f96828))
+
 # 0.1.1 (2026-06-11)
 
 ### Spring Boot Template
