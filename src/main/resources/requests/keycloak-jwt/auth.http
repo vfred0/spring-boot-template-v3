@@ -23,7 +23,7 @@
 #        docker compose --profile keycloak up -d
 #   2. App in a Keycloak mode (KEYCLOAK_OPAQUE default or KEYCLOAK_JWT —
 #      the cookie flow is identical in both; API_KEY mode has no /api/auth):
-#        docker compose up -d jwt-demo
+#        docker compose up -d spring-boot-template
 ###############################################################################
 
 @names = John Doe

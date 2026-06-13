@@ -63,8 +63,8 @@ docker compose --profile keycloak up -d
 +
 [source,bash]
 ----
-docker compose up -d jwt-demo                                  # KEYCLOAK_OPAQUE (default)
-APP_SECURITY_MODE=KEYCLOAK_JWT docker compose up -d jwt-demo   # local JWT validation
+docker compose up -d spring-boot-template                                  # KEYCLOAK_OPAQUE (default)
+APP_SECURITY_MODE=KEYCLOAK_JWT docker compose up -d spring-boot-template   # local JWT validation
 ----
 
 If you cannot recreate the Keycloak volume, grant the role manually:
