@@ -1,0 +1,237 @@
+###############################################################################
+# RBAC MANAGEMENT (KEYCLOAK_JWT profile) — manual walkthrough
+# (IntelliJ HTTP Client / VS Code REST Client)
+#
+# Goal: manage the application's DB-backed RBAC (roles, permissions and
+# per-subject assignments) entirely through /api/rbac, authenticated with a
+# Keycloak access token.
+#
+# TWO RBAC SYSTEMS — do not confuse them:
+#   - Keycloak realm/client roles      -> mapped to ROLE_* authorities only.
+#   - Application RBAC (this API)       -> roles + fine-grained resource:action
+#                                          permissions, stored in the app DB,
+#                                          loaded by keycloak `sub` on EVERY
+#                                          request (no re-login after a change).
+#
+# ACCESS GATE: every /api/rbac endpoint requires the authority `rbac:manage`,
+# which ONLY comes from the app DB (Keycloak roles become ROLE_*, never
+# resource:action). In KEYCLOAK_JWT mode the authenticated subject is the
+# Keycloak user UUID, so the FIRST admin must be bootstrapped by SQL (steps
+# below); afterwards everything is done through this API.
+#
+# PREREQUISITES:
+#   1. App running in KEYCLOAK_JWT mode:
+#        APP_SECURITY_MODE=KEYCLOAK_JWT docker compose up -d spring-boot-template
+#   2. A registered Keycloak user (run auth.http steps 1-2 first).
+###############################################################################
+
+### 1. LOGIN — obtain a Keycloak access token
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "{{registerUsername}}",
+  "password": "{{registerPassword}}",
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
+
+> {%
+    client.test("login returns 200", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+    client.global.set("accessToken", response.body.data.access_token);
+%}
+
+### 2. WHOAMI — capture YOUR keycloak subject (UUID)
+# `data.username` holds the keycloak `sub`. Copy it: you need it to bootstrap
+# the first admin (next note). With no role yet, `data.role` is null.
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{accessToken}}
+
+> {%
+    client.test("profile returned", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+    client.global.set("subject", response.body.data.username);
+    client.log("Your keycloak sub = " + response.body.data.username);
+%}
+
+###############################################################################
+# >>> BOOTSTRAP GATE (run ONCE, only for the first admin) <<<
+#
+# The subject from step 2 has no `rbac:manage` yet, so steps 3+ would return
+# 403 until you grant it directly in the DB. Using the sub printed above:
+#
+#   docker compose exec -T spring-boot-template-db \
+#     psql -U spring-boot-template -d spring-boot-template <<'SQL'
+#   INSERT INTO roles (name, description) VALUES ('ADMIN', 'Full system access')
+#     ON CONFLICT (name) DO NOTHING;
+#   INSERT INTO permissions (resource, action) VALUES ('rbac', 'manage')
+#     ON CONFLICT (resource, action) DO NOTHING;
+#   INSERT INTO role_permissions (role_id, permission_id)
+#     SELECT r.id, p.id FROM roles r JOIN permissions p
+#       ON p.resource = 'rbac' AND p.action = 'manage'
+#     WHERE r.name = 'ADMIN' ON CONFLICT DO NOTHING;
+#   INSERT INTO user_roles (keycloak_sub, role_id)
+#     SELECT '<PASTE-YOUR-SUB-HERE>', id FROM roles WHERE name = 'ADMIN'
+#     ON CONFLICT (keycloak_sub) DO NOTHING;
+#   SQL
+#
+# Authorities are read from the DB on every request, so NO re-login is needed —
+# the same access token gains `rbac:manage` on its next call.
+###############################################################################
+
+### 3. LIST ROLES — confirms `rbac:manage` works (403 means bootstrap pending)
+GET {{baseUrl}}/api/rbac/roles
+Authorization: Bearer {{accessToken}}
+
+> {%
+    client.test("authorized to manage rbac", () =>
+        client.assert(response.status === 200,
+            `Got ${response.status} — bootstrap the admin sub (see gate above)`));
+%}
+
+### 4. LIST PERMISSION CATALOG
+GET {{baseUrl}}/api/rbac/permissions
+Authorization: Bearer {{accessToken}}
+
+> {%
+    client.test("permissions listed", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+%}
+
+### 5. CREATE PERMISSION — adds a resource:action to the catalog
+POST {{baseUrl}}/api/rbac/permissions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "resource": "customers",
+  "action": "export"
+}
+
+> {%
+    client.test("permission created (or 409 on re-run)", () =>
+        client.assert(response.status === 201 || response.status === 409,
+            `Got ${response.status}`));
+%}
+
+### 6. CREATE ROLE — capture the generated roleId
+# @name createRole
+POST {{baseUrl}}/api/rbac/roles
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "DATA_ANALYST",
+  "description": "Read and export customer data"
+}
+
+> {%
+    client.test("role created (or 409 on re-run)", () =>
+        client.assert(response.status === 201 || response.status === 409,
+            `Got ${response.status}`));
+    if (response.status === 201) {
+        client.global.set("roleId", response.body.data.id);
+    }
+%}
+
+### 7. ATTACH PERMISSIONS — additive, keeps existing
+POST {{baseUrl}}/api/rbac/roles/{{roleId}}/permissions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "permissions": [
+    { "resource": "customers", "action": "read" },
+    { "resource": "customers", "action": "export" }
+  ]
+}
+
+> {%
+    client.test("permissions attached", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+    client.test("role now has customers:export", () =>
+        client.assert(response.body.data.permissions.includes("customers:export"),
+            JSON.stringify(response.body.data.permissions)));
+%}
+
+### 8. REPLACE PERMISSIONS — swaps the whole set (PATCH)
+PATCH {{baseUrl}}/api/rbac/roles/{{roleId}}/permissions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "permissions": [
+    { "resource": "customers", "action": "read" }
+  ]
+}
+
+> {%
+    client.test("permissions replaced", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+    client.test("only customers:read remains", () =>
+        client.assert(response.body.data.permissions.length === 1
+            && response.body.data.permissions[0] === "customers:read",
+            JSON.stringify(response.body.data.permissions)));
+%}
+
+### 9. ASSIGN ROLE — grant the role to a subject (replaces any previous role)
+# Assigns to YOUR own sub here; in real use pass another user's keycloak sub.
+PUT {{baseUrl}}/api/rbac/users/{{subject}}/role
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "role": "DATA_ANALYST"
+}
+
+> {%
+    client.test("role assigned", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+%}
+
+### 10. VERIFY — the assignment takes effect immediately (no re-login)
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{accessToken}}
+
+> {%
+    client.test("profile reflects new role", () =>
+        client.assert(response.body.data.role === "DATA_ANALYST",
+            `role=${response.body.data.role}`));
+%}
+
+### 11. DETACH A SINGLE PERMISSION FROM A ROLE
+DELETE {{baseUrl}}/api/rbac/roles/{{roleId}}/permissions/customers/read
+Authorization: Bearer {{accessToken}}
+
+> {%
+    client.test("permission detached", () =>
+        client.assert(response.status === 200, `Got ${response.status}`));
+%}
+
+### 12. UNASSIGN ROLE — remove the subject's assignment
+DELETE {{baseUrl}}/api/rbac/users/{{subject}}/role
+Authorization: Bearer {{accessToken}}
+
+> {%
+    client.test("role unassigned (204)", () =>
+        client.assert(response.status === 204, `Got ${response.status}`));
+%}
+
+### 13. DELETE ROLE — 409 if any subject is still assigned to it
+DELETE {{baseUrl}}/api/rbac/roles/{{roleId}}
+Authorization: Bearer {{accessToken}}
+
+> {%
+    client.test("role deleted (204)", () =>
+        client.assert(response.status === 204, `Got ${response.status}`));
+%}
+
+### 14. (NEGATIVE) NO TOKEN — protected admin endpoint must reject
+GET {{baseUrl}}/api/rbac/roles
+
+> {%
+    client.test("missing token -> 401", () =>
+        client.assert(response.status === 401, `Got ${response.status}`));
+%}
