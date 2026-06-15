@@ -1,6 +1,7 @@
 package com.template.config;
 
 import org.quartz.spi.TriggerFiredBundle;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -14,6 +15,9 @@ import java.util.Properties;
 
 @Configuration
 public class QuartzConfig {
+
+    @Value("${spring.quartz.properties.org.quartz.jobStore.tablePrefix:QRTZ_}")
+    private String tablePrefix;
 
     @Bean(name = "quartzScheduler")
     public SchedulerFactoryBean schedulerFactoryBean(DataSource dataSource, ApplicationContext applicationContext) {
@@ -39,7 +43,7 @@ public class QuartzConfig {
         properties.setProperty("org.quartz.jobStore.class", "org.springframework.scheduling.quartz.LocalDataSourceJobStore");
         properties.setProperty("org.quartz.jobStore.driverDelegateClass", "org.quartz.impl.jdbcjobstore.PostgreSQLDelegate");
         properties.setProperty("org.quartz.jobStore.useProperties", "false");
-        properties.setProperty("org.quartz.jobStore.tablePrefix", "QRTZ_");
+        properties.setProperty("org.quartz.jobStore.tablePrefix", tablePrefix);
         properties.setProperty("org.quartz.jobStore.isClustered", "true");
         properties.setProperty("org.quartz.jobStore.clusterCheckinInterval", "20000");
         properties.setProperty("org.quartz.jobStore.misfireThreshold", "60000");
