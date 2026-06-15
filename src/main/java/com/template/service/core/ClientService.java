@@ -6,8 +6,8 @@ import com.template.api.http_errors.exceptions.ClientSearchQueryTooShortExceptio
 import com.template.api.http_errors.exceptions.ClientNotFoundException;
 import com.template.api.http_errors.exceptions.PhoneAlreadyExistsException;
 import com.template.config.mapper.ClientMapper;
-import com.template.data.entities.core.rbac.Account;
 import com.template.data.entities.core.Client;
+import com.template.data.entities.core.rbac.Account;
 import com.template.data.daos.AccountRepository;
 import com.template.data.daos.ClientRepository;
 import org.springframework.beans.factory.annotation.Value;

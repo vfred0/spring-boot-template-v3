@@ -15,7 +15,7 @@ import static lombok.AccessLevel.PRIVATE;
 @AllArgsConstructor
 @FieldDefaults(level = PRIVATE)
 @Entity
-@Table(name = "request_logs")
+@Table(name = "request_logs", schema = "core")
 public class RequestLog {
 
     @Id

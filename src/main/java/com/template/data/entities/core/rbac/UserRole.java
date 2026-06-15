@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "user_roles")
+@Table(name = "user_roles", schema = "identity")
 @Getter
 @Setter
 public class UserRole {

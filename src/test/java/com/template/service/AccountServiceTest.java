@@ -1,5 +1,6 @@
 package com.template.service;
 
+import com.template.data.entities.core.Client;
 import jakarta.persistence.OptimisticLockException;
 import com.template.api.dtos.account.AccountResponse;
 import com.template.api.dtos.account.UpdateBalanceRequest;
@@ -7,7 +8,6 @@ import com.template.api.http_errors.exceptions.AccountNotFoundException;
 import com.template.api.http_errors.exceptions.AccountOptimisticLockException;
 import com.template.config.mapper.AccountMapper;
 import com.template.data.entities.core.rbac.Account;
-import com.template.data.entities.core.Client;
 import com.template.data.daos.AccountRepository;
 import com.template.service.core.AccountService;
 import org.junit.jupiter.api.BeforeEach;

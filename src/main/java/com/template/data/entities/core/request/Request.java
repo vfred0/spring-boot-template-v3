@@ -15,7 +15,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "request")
+@Table(name = "requests", schema = "core")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor

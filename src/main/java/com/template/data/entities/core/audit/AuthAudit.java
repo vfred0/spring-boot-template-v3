@@ -7,7 +7,7 @@ import lombok.Setter;
 import java.time.Instant;
 
 @Entity
-@Table(name = "auth_audit")
+@Table(name = "auth_audits", schema = "security")
 @Getter
 @Setter
 public class AuthAudit {

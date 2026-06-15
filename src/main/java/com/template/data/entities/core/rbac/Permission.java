@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "permissions")
+@Table(name = "permissions", schema = "identity")
 @Getter
 @Setter
 public class Permission {

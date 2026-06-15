@@ -7,7 +7,7 @@ import lombok.Setter;
 import java.time.Instant;
 
 @Entity
-@Table(name = "api_keys")
+@Table(name = "api_keys", schema = "security")
 @Getter
 @Setter
 public class ApiKey {

@@ -1,5 +1,6 @@
 package com.template.data.entities.core.rbac;
 
+import com.template.data.entities.core.Client;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -14,12 +15,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import com.template.data.entities.core.Client;
 
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "account")
+@Table(name = "accounts", schema = "core")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
