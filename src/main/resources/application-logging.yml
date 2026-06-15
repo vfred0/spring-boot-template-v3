@@ -1,0 +1,25 @@
+logging:
+  level:
+    root: INFO
+    com.template: INFO
+    org.springframework.security: WARN
+    org.springframework.web: WARN
+    org.hibernate: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    com.zaxxer.hikari: WARN
+    com.zaxxer.hikari.pool.ProxyLeakTask: DEBUG
+    org.springframework.boot.autoconfigure: WARN
+    org.springframework.aop.interceptor.AsyncExecutionInterceptor: DEBUG
+    web: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ./logs/spring-boot-template.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7
+      total-size-cap: 100MB
+      file-name-pattern: "./logs/spring-boot-template-%d{yyyy-MM-dd}.%i.gz"

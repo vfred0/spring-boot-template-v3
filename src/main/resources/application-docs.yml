@@ -1,0 +1,17 @@
+springdoc:
+  swagger-ui:
+    tags-sorter: alpha
+    operations-sorter: method
+    default-models-expand-depth: -1
+    doc-expansion: list
+    path: /docs
+    display-request-duration: true
+
+  api-docs:
+    path: /openapi-docs
+
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+  writer-with-default-pretty-printer: true
+  model-and-view-allowed: true
+  enable-default-api-docs: true
