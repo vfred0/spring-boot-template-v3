@@ -35,17 +35,17 @@ public class UserPermissionService {
     }
 
     @Transactional(readOnly = true)
-    public UserProfileResponse buildProfile(String keycloakSub) {
+    public UserProfileResponse buildProfile(String keycloakSub, String name) {
         return userRoleRepository.findByKeycloakSub(keycloakSub)
-                .map(this::toProfile)
-                .orElse(new UserProfileResponse(keycloakSub, null, List.of()));
+                .map(ur -> toProfile(ur, name))
+                .orElse(new UserProfileResponse(keycloakSub, name, null, List.of()));
     }
 
-    private UserProfileResponse toProfile(UserRole userRole) {
+    private UserProfileResponse toProfile(UserRole userRole, String name) {
         List<String> permissions = userRole.getRole().getPermissions().stream()
                 .map(p -> p.getResource() + ":" + p.getAction())
                 .sorted()
                 .collect(Collectors.toList());
-        return new UserProfileResponse(userRole.getKeycloakSub(), userRole.getRole().getName(), permissions);
+        return new UserProfileResponse(userRole.getKeycloakSub(), name, userRole.getRole().getName(), permissions);
     }
 }
