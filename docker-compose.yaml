@@ -56,6 +56,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: local
       APP_SECURITY_MODE: ${APP_SECURITY_MODE:-KEYCLOAK_JWT}
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration,classpath:db/devseed
       KEYCLOAK_AUTH_SERVER_URL: http://keycloak:8080
       SPRING_DATASOURCE_URL: jdbc:postgresql://spring-boot-template-db:5432/spring-boot-template
       SPRING_DATASOURCE_USERNAME: spring-boot-template
@@ -67,6 +68,7 @@ services:
       - /tmp
     volumes:
       - app-downloads:/app/data
+      - ./logs:/app/logs
     security_opt:
       - no-new-privileges:true
     cap_drop:

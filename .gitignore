@@ -38,3 +38,7 @@ build/
 .gradle/
 ### Generated docs (AsciiDoc render) ###
 docs/*.html
+
+### Logs ###
+logs/
+*.log

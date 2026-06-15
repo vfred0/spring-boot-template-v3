@@ -28,9 +28,9 @@ RUN --mount=type=cache,target=/root/.gradle \
     -Dorg.gradle.jvmargs="-Xmx2g -XX:+UseG1GC"
 
 FROM eclipse-temurin:25-jre-alpine@sha256:c707c0d18cb9e8556380719f80d96a7529d0746fbb42143893949b98ed2f8943
-RUN addgroup -S app && adduser -S app -G app
+RUN addgroup -S -g 1000 app && adduser -S -u 1000 app -G app
 WORKDIR /app
-RUN mkdir -p /app/data/downloads && chown -R app:app /app/data
+RUN mkdir -p /app/data/downloads /app/logs && chown -R app:app /app/data /app/logs
 
 COPY --from=builder --chown=app:app /build/build/libs/*.jar app.jar
 
