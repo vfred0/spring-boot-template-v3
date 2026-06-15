@@ -31,4 +31,8 @@ public class KeycloakProperties {
 
     private String resourceClientId;
     private String resourceClientSecret;
+
+    private String authorizationUrl;
+    private String oauth2RedirectUri;
+    private String oauth2FrontendCallbackUrl;
 }
