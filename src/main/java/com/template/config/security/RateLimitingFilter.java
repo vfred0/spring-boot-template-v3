@@ -34,6 +34,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class RateLimitingFilter extends OncePerRequestFilter {
 
+    private static final String RATE_LIMIT_TITLE_KEY = "api.error.title.tooManyRequests";
     private static final String RATE_LIMIT_MESSAGE_KEY = "api.error.tooManyRequests";
     public static final String DEFAULT_RATE_LIMIT_BUCKETS_CACHE = "rateLimitBuckets";
 
@@ -159,6 +160,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private void writeRateLimitedResponse(HttpServletResponse response) throws IOException {
         ApiResult<Void> error = ApiResult.error(
                 ApiErrorType.TOO_MANY_REQUESTS,
+                messageService.getMessage(RATE_LIMIT_TITLE_KEY),
                 messageService.getMessage(RATE_LIMIT_MESSAGE_KEY)
         );
 

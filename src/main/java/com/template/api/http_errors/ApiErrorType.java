@@ -3,6 +3,7 @@ package com.template.api.http_errors;
 import org.springframework.http.HttpStatus;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public enum ApiErrorType {
@@ -56,6 +57,25 @@ public enum ApiErrorType {
             return toApiFieldError();
         }
         return new ApiFieldError(status.value(), code, message + ": " + detail);
+    }
+
+    public String titleKey() {
+        return "api.error.title." + camelKey();
+    }
+
+    public String messageKey() {
+        return "api.error." + camelKey();
+    }
+
+    private String camelKey() {
+        String[] parts = code.toLowerCase(Locale.ROOT).split("_");
+        if (parts.length == 1) return parts[0];
+        StringBuilder sb = new StringBuilder(parts[0]);
+        for (int i = 1; i < parts.length; i++) {
+            sb.append(Character.toUpperCase(parts[i].charAt(0)));
+            sb.append(parts[i].substring(1));
+        }
+        return sb.toString();
     }
 
     public Map<String, Object> toMethodNotAllowedBody(String method, String path) {

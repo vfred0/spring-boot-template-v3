@@ -18,6 +18,7 @@ import com.template.api.http_errors.ApiErrorType;
 import com.template.api.http_errors.exceptions.KeycloakAuthException;
 import com.template.config.security.RefreshTokenCookieWriter;
 import com.template.service.core.KeycloakAuthService;
+import com.template.service.core.shared.MessageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,7 @@ public class AuthResource {
 
     private final KeycloakAuthService authService;
     private final RefreshTokenCookieWriter cookieWriter;
+    private final MessageService messageService;
 
     @PostMapping("/login")
     @Operation(summary = "Login and obtain tokens",
@@ -51,7 +53,9 @@ public class AuthResource {
         } catch (KeycloakAuthException ex) {
             return ResponseEntity.status(ex.getStatus())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(ApiResult.error(ApiErrorType.UNAUTHORIZED, ex.getKeycloakMessage()));
+                    .body(ApiResult.error(ApiErrorType.UNAUTHORIZED,
+                            messageService.getMessage("auth.error.login.title"),
+                            messageService.getMessage("auth.error.login.message")));
         }
     }
 
@@ -70,7 +74,9 @@ public class AuthResource {
         if (!StringUtils.hasText(refreshToken)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(ApiResult.error(ApiErrorType.INVALID_GRANT, "Refresh token is missing"));
+                    .body(ApiResult.error(ApiErrorType.INVALID_GRANT,
+                            messageService.getMessage("auth.error.refresh.title"),
+                            messageService.getMessage("auth.error.refresh.message")));
         }
         try {
             KeycloakTokenResponse tokens = authService.refresh(req, refreshToken, dpopProof);
@@ -79,7 +85,9 @@ public class AuthResource {
         } catch (KeycloakAuthException ex) {
             return ResponseEntity.status(ex.getStatus())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(ApiResult.error(ApiErrorType.INVALID_GRANT, ex.getKeycloakMessage()));
+                    .body(ApiResult.error(ApiErrorType.INVALID_GRANT,
+                            messageService.getMessage("auth.error.refresh.title"),
+                            messageService.getMessage("auth.error.refresh.message")));
         }
     }
 
@@ -102,7 +110,9 @@ public class AuthResource {
             cookieWriter.clear(response);
             return ResponseEntity.status(ex.getStatus())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(ApiResult.error(ApiErrorType.INVALID_TOKEN, ex.getKeycloakMessage()));
+                    .body(ApiResult.error(ApiErrorType.INVALID_TOKEN,
+                            messageService.getMessage("auth.error.logout.title"),
+                            messageService.getMessage("auth.error.logout.message")));
         }
     }
 }

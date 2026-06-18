@@ -10,6 +10,7 @@ import java.util.List;
 public record ApiResult<T>(
         Integer status,
         String code,
+        String title,
         String message,
         T data,
         List<ApiFieldError> errors,
@@ -18,28 +19,32 @@ public record ApiResult<T>(
     public record Summary(int total, int processed, int failed) {}
 
     public static <T> ApiResult<T> ok(T data) {
-        return new ApiResult<>(200, "OK", null, data, null, null);
+        return new ApiResult<>(200, "OK", null, null, data, null, null);
     }
 
     public static <T> ApiResult<T> ok(T data, String message) {
-        return new ApiResult<>(200, "OK", message, data, null, null);
+        return new ApiResult<>(200, "OK", null, message, data, null, null);
     }
 
     public static <T> ApiResult<T> created(T data) {
-        return new ApiResult<>(201, "CREATED", null, data, null, null);
+        return new ApiResult<>(201, "CREATED", null, null, data, null, null);
     }
 
     public static <T> ApiResult<T> error(ApiErrorType type) {
-        return error(type, type.message());
+        return error(type, null, type.message());
     }
 
     public static <T> ApiResult<T> error(ApiErrorType type, String message) {
+        return error(type, null, message);
+    }
+
+    public static <T> ApiResult<T> error(ApiErrorType type, String title, String message) {
         return new ApiResult<>(type.status().value(), type.code(),
-                message != null ? message : type.message(), null, null, null);
+                title, message != null ? message : type.message(), null, null, null);
     }
 
     public static ApiResult<Void> errors(ApiErrorType type, List<ApiFieldError> errors) {
-        return new ApiResult<>(type.status().value(), type.code(), type.message(), null,
+        return new ApiResult<>(type.status().value(), type.code(), null, type.message(), null,
                 errors != null ? List.copyOf(errors) : null, null);
     }
 
@@ -47,7 +52,7 @@ public record ApiResult<T>(
         var summary = new Summary(processed + failed, processed, failed);
         var type = (processed > 0 && failed > 0) ? ApiErrorType.MULTI_STATUS : ApiErrorType.BAD_REQUEST;
         var normalized = normalizeStatuses(errors, type);
-        return new ApiResult<>(type.status().value(), type.code(), type.message(), null, normalized, summary);
+        return new ApiResult<>(type.status().value(), type.code(), null, type.message(), null, normalized, summary);
     }
 
     private static List<ApiFieldError> normalizeStatuses(List<ApiFieldError> errors, ApiErrorType type) {

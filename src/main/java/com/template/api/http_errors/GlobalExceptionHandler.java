@@ -215,12 +215,13 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ApiResult<Void>> respond(ApiErrorType type) {
-        return respond(type, type.message());
+        return respond(type, messageService.getMessage(type.messageKey()));
     }
 
     private ResponseEntity<ApiResult<Void>> respond(ApiErrorType type, String message) {
+        String title = messageService.getMessage(type.titleKey());
         return ResponseEntity.status(type.status())
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(ApiResult.error(type, message));
+                .body(ApiResult.error(type, title, message));
     }
 }
