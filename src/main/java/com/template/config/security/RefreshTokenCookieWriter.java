@@ -22,8 +22,8 @@ public class RefreshTokenCookieWriter {
     private ResponseCookie buildCookie(String value, int maxAge) {
         return ResponseCookie.from(REFRESH_TOKEN_COOKIE, value)
                 .httpOnly(true)
-                .secure(true)
-                .sameSite("Strict")
+                .secure(false)
+                .sameSite("Lax")
                 .path(COOKIE_PATH)
                 .maxAge(maxAge)
                 .build();
