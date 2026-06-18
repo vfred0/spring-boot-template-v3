@@ -340,24 +340,43 @@ La estructura siempre es: `{keycloak-url}/realms/{realm}/broker/google/endpoint`
 . En el menú izquierdo: *Identity Providers → Add provider → Google*.
 . Completar los campos:
 +
-[cols="1,2"]
+[cols="1,1,2"]
 |===
-|Campo |Valor
+|Campo |Valor |Por qué
+
+|Alias
+|`google`
+|Debe coincidir con el valor de `kc_idp_hint` que envía el backend.
 
 |Client ID
 |El Client ID de Google Cloud Console
+|Identifica a Keycloak ante Google.
 
 |Client Secret
 |El Client Secret de Google Cloud Console
+|Secreto compartido entre Keycloak y Google.
 
-|Default Scopes
-|`openid profile email`
+|Prompt
+|`select_account`
+|Keycloak le pasa este parámetro a Google para que el usuario pueda elegir cuenta.
+
+|Request refresh token
+|*On*
+|Hace que Google incluya un `refresh_token` en la respuesta al broker.
+Necesario para que Keycloak tenga sesión larga con Google.
+
+|Store tokens
+|*Off*
+|No es necesario guardar los tokens de Google en la BD de Keycloak.
+El proyecto solo necesita que Keycloak emita sus propios tokens.
 
 |Trust Email
-|Activado (evita el paso de verificación de email para usuarios de Google)
+|*On*
+|Evita que Keycloak exija verificar el email de cuentas de Google (ya lo verificó Google).
 
-|Store Tokens
-|Activado (necesario para que Keycloak propague los refresh tokens)
+|Scopes
+|(vacío)
+|Keycloak usa sus defaults (`openid profile email`). No hace falta sobreescribir.
 |===
 +
 . Guardar.
