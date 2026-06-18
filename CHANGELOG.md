@@ -1,3 +1,14 @@
+# 0.4.0 (2026-06-18)
+
+### Spring Boot Template
+
+ * feature  **keycloak:** auto-configure Google IdP from env vars on realm import ([6ad40d7](https://github.com/vfred0/spring-boot-template-v3/commit/6ad40d7))
+ * docs  **keycloak:** document Google OAuth2 broker setup and end-to-end flow ([6eb3d3c](https://github.com/vfred0/spring-boot-template-v3/commit/6eb3d3c))
+ * docs  **keycloak:** fix Google IdP field values from actual Keycloak config ([adfe17e](https://github.com/vfred0/spring-boot-template-v3/commit/adfe17e))
+ * docs  **keycloak:** clarify realm-export vs env var configuration boundary ([2b5af98](https://github.com/vfred0/spring-boot-template-v3/commit/2b5af98))
+ * chore  **infra:** use KC_BOOTSTRAP_ADMIN_USERNAME and document temporary admin warning ([01c0d88](https://github.com/vfred0/spring-boot-template-v3/commit/01c0d88))
+ * chore  **config:** update env example with Google IdP and bootstrap admin keys ([7bdc4db](https://github.com/vfred0/spring-boot-template-v3/commit/7bdc4db))
+
 # 0.3.0 (2026-06-17)
 
 ### Spring Boot Template
