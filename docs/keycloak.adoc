@@ -278,6 +278,31 @@ llamar a Keycloak en cada request.
 |El procedimiento para obtener un token (password, authorization code, etc.).
 |===
 
+== Advertencia: "You are logged in as a temporary admin user"
+
+Esta advertencia aparece porque el admin configurado en `docker-compose.yaml` vía
+`KC_BOOTSTRAP_ADMIN_USERNAME` es un *bootstrap admin* — un usuario temporal diseñado solo para el
+primer arranque. En Keycloak 26+ todos los admins creados por esta variable son temporales por
+diseño, y Keycloak siempre muestra el aviso.
+
+*En desarrollo se puede ignorar.* No afecta funcionalidad.
+
+Si se quiere eliminar el warning (necesario en producción):
+
+. Loguearse en `http://localhost:8080` con el bootstrap admin.
+. Cambiar al realm *master* (arriba a la izquierda).
+. Ir a *Users → Add user*, crear un nuevo usuario (ej. `superadmin`).
+. En la pestaña *Credentials*, asignarle una contraseña permanente.
+. En la pestaña *Role mappings*, asignar el rol `admin` del realm `master`.
+. Cerrar sesión y volver a entrar con el nuevo usuario → el warning desaparece.
+. Opcional: borrar el bootstrap admin.
+
+[NOTE]
+====
+Renombrar las vars de `KEYCLOAK_ADMIN` a `KC_BOOTSTRAP_ADMIN_USERNAME` elimina warnings de
+deprecación pero *no* elimina el aviso de admin temporal — ambas crean el mismo tipo de usuario.
+====
+
 == Probarlo localmente
 
 Levantá Keycloak (importa el realm automáticamente):
