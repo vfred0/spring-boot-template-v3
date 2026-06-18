@@ -70,8 +70,8 @@ public class KeycloakAuthService {
     public KeycloakTokenResponse login(SignInRequest req, String dpopProof) {
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add(CLIENT_ID, req.clientId());
-        form.add(CLIENT_SECRET, req.clientSecret());
+        form.add(CLIENT_ID, props.getResourceClientId());
+        form.add(CLIENT_SECRET, props.getResourceClientSecret());
         form.add(GRANT_TYPE, PASSWORD);
         form.add(USERNAME, req.username());
         form.add(PASSWORD, req.password());
@@ -79,7 +79,7 @@ public class KeycloakAuthService {
         HttpEntity<MultiValueMap<String, String>> entity = createFormEntity(form, dpopProof);
 
         log.info("➡️  LOGIN request to Keycloak: user={}, clientId={}, realm={}",
-                req.username(), req.clientId(), props.getRealm());
+                req.username(), props.getResourceClientId(), props.getRealm());
 
         try {
             ResponseEntity<String> response = postFormForString(props.getTokenUrl(), entity);
@@ -131,15 +131,15 @@ public class KeycloakAuthService {
     public KeycloakTokenResponse refresh(RefreshRequest req, String refreshToken, String dpopProof) {
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add(CLIENT_ID, req.clientId());
-        form.add(CLIENT_SECRET, req.clientSecret());
+        form.add(CLIENT_ID, props.getResourceClientId());
+        form.add(CLIENT_SECRET, props.getResourceClientSecret());
         form.add(GRANT_TYPE, REFRESH_TOKEN);
         form.add(REFRESH_TOKEN, refreshToken);
 
         HttpEntity<MultiValueMap<String, String>> entity = createFormEntity(form, dpopProof);
 
         log.info("➡️  REFRESH request to Keycloak: clientId={}, realm={}",
-                req.clientId(), props.getRealm());
+                props.getResourceClientId(), props.getRealm());
 
         try {
             ResponseEntity<KeycloakTokenResponse> response =
@@ -179,14 +179,14 @@ public class KeycloakAuthService {
     public void logout(SignOutRequest req, String refreshToken, String dpopProof) {
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add(CLIENT_ID, req.clientId());
-        form.add(CLIENT_SECRET, req.clientSecret());
+        form.add(CLIENT_ID, props.getResourceClientId());
+        form.add(CLIENT_SECRET, props.getResourceClientSecret());
         form.add(REFRESH_TOKEN, refreshToken);
 
         HttpEntity<MultiValueMap<String, String>> entity = createFormEntity(form, dpopProof);
 
         log.info("➡️  LOGOUT request to Keycloak: clientId={}, realm={}",
-                req.clientId(), props.getRealm());
+                props.getResourceClientId(), props.getRealm());
 
         try {
             ResponseEntity<String> response =

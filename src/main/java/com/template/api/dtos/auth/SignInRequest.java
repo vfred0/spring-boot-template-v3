@@ -9,11 +9,5 @@ public record SignInRequest(
         String username,
         @NotBlank(message = "{validation.password.required}")
         @Schema(example = "P@ssw0rd!")
-        String password,
-        @NotBlank(message = "{validation.clientId.required}")
-        @Schema(example = "spring-app")
-        String clientId,
-        @NotBlank(message = "{validation.clientSecret.required}")
-        @Schema(example = "spring-app-secret")
-        String clientSecret
+        String password
 ) {}

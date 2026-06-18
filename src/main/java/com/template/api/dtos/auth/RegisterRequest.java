@@ -10,7 +10,13 @@ public record RegisterRequest(
         @NotBlank(message = "{validation.password.required}")
         @Schema(example = "P@ssw0rd!")
         String password,
-        @NotBlank(message = "{validation.names.required}")
-        @Schema(example = "John Doe")
-        String names
+        @NotBlank(message = "{validation.firstName.required}")
+        @Schema(example = "John")
+        String firstName,
+        @NotBlank(message = "{validation.lastName.required}")
+        @Schema(example = "Doe")
+        String lastName,
+        @NotBlank(message = "{validation.email.required}")
+        @Schema(example = "jdoe@example.com")
+        String email
 ) {}
