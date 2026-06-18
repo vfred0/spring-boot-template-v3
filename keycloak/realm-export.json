@@ -13,6 +13,31 @@
       }
     ]
   },
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${GOOGLE_CLIENT_ID}",
+        "clientSecret": "${GOOGLE_CLIENT_SECRET}",
+        "prompt": "select_account",
+        "requestRefreshToken": "true",
+        "defaultScope": "",
+        "syncMode": "LEGACY",
+        "acceptsPromptNoneForwFrmClnt": "false",
+        "disableUserInfo": "false",
+        "hideOnLoginPage": "false",
+        "caseSensitiveOriginalUsername": "false"
+      }
+    }
+  ],
   "revokeRefreshToken": true,
   "refreshTokenMaxReuse": 0,
   "accessTokenLifespan": 300,

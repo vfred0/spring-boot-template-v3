@@ -26,6 +26,18 @@ services:
     volumes:
       - spring-boot-template-db-data:/var/lib/postgresql
 
+  keycloak-realm-init:
+    image: alpine
+    profiles: ["keycloak"]
+    environment:
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+    volumes:
+      - ./keycloak/realm-export.json:/tmp/realm-export.template.json:ro
+      - ./keycloak/process-realm.sh:/tmp/process-realm.sh:ro
+      - keycloak-import-data:/import
+    command: ["/bin/sh", "/tmp/process-realm.sh"]
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.0
     container_name: keycloak
@@ -46,9 +58,12 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - spring-boot-template-keycloak-db
+      spring-boot-template-keycloak-db:
+        condition: service_started
+      keycloak-realm-init:
+        condition: service_completed_successfully
     volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+      - keycloak-import-data:/opt/keycloak/data/import:ro
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /realms/spring-boot-template HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"realm\"'"]
       interval: 15s
@@ -94,6 +109,7 @@ services:
 volumes:
   spring-boot-template-db-data:
   spring-boot-template-keycloak-db-data:
+  keycloak-import-data:
   app-downloads:
 
 networks:
