@@ -1,3 +1,14 @@
+# 0.3.0 (2026-06-17)
+
+### Spring Boot Template
+
+ * feature  **i18n:** add bilingual error responses with title field in ApiResult ([73fd074](https://github.com/vfred0/spring-boot-template-v3/commit/73fd074))
+ * feature  **cors:** add CORS support across all security filter chains ([f0443c1](https://github.com/vfred0/spring-boot-template-v3/commit/f0443c1))
+ * refactor  **auth:** move client credentials from request DTOs to server properties ([6096b8f](https://github.com/vfred0/spring-boot-template-v3/commit/6096b8f))
+ * bug fix  **auth:** handle OAuth2 error callback and add public authorization URL ([9295bac](https://github.com/vfred0/spring-boot-template-v3/commit/9295bac))
+ * bug fix  **auth:** use SameSite=Lax for refresh token cookie on OAuth redirect ([e7fe0f1](https://github.com/vfred0/spring-boot-template-v3/commit/e7fe0f1))
+ * chore  **config:** update application properties, Docker Compose and Keycloak realm ([03a860e](https://github.com/vfred0/spring-boot-template-v3/commit/03a860e))
+
 # 0.2.0 (2026-06-14)
 
 ### Spring Boot Template
