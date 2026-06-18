@@ -40,12 +40,21 @@ services:
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_ADMIN: http://localhost:8080
+      KC_HOSTNAME_STRICT: "false"
     ports:
       - "8080:8080"
     depends_on:
       - spring-boot-template-keycloak-db
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /realms/spring-boot-template HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"realm\"'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
   spring-boot-template:
     container_name: spring-boot-template
@@ -58,6 +67,8 @@ services:
       APP_SECURITY_MODE: ${APP_SECURITY_MODE:-KEYCLOAK_JWT}
       SPRING_FLYWAY_LOCATIONS: classpath:db/migration,classpath:db/devseed
       KEYCLOAK_AUTH_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_PUBLIC_AUTH_SERVER_URL: http://localhost:8080
+      KEYCLOAK_OAUTH2_FRONTEND_CALLBACK_URL: http://localhost:4200/auth/callback
       SPRING_DATASOURCE_URL: jdbc:postgresql://spring-boot-template-db:5432/spring-boot-template
       SPRING_DATASOURCE_USERNAME: spring-boot-template
       SPRING_DATASOURCE_PASSWORD: ${APP_DB_PASSWORD}
@@ -74,9 +85,18 @@ services:
     cap_drop:
       - ALL
     depends_on:
-      - spring-boot-template-db
+      spring-boot-template-db:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+        required: false
 
 volumes:
   spring-boot-template-db-data:
   spring-boot-template-keycloak-db-data:
   app-downloads:
+
+networks:
+  default:
+    name: spring-boot-template
+    driver: bridge

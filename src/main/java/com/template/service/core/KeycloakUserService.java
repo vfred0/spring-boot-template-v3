@@ -88,7 +88,9 @@ public class KeycloakUserService {
     private Map<String, Object> buildUserPayload(RegisterRequest request) {
         return Map.of(
                 "username", request.username(),
-                "firstName", request.names(),
+                "email", request.email(),
+                "firstName", request.firstName(),
+                "lastName", request.lastName(),
                 "enabled", true,
                 "credentials", List.of(Map.of(
                         "type", "password",

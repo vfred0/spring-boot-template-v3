@@ -1,36 +1,76 @@
 {
   "realm": "spring-boot-template",
   "enabled": true,
-
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+          ]
+        }
+      }
+    ]
+  },
   "revokeRefreshToken": true,
   "refreshTokenMaxReuse": 0,
-
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
-
   "offlineSessionIdleTimeout": 2592000,
   "offlineSessionMaxLifespan": 5184000,
   "offlineSessionMaxLifespanEnabled": true,
-
   "requiredActions": [
-    { "alias": "UPDATE_PASSWORD", "enabled": false, "defaultAction": false },
-    { "alias": "UPDATE_PROFILE", "enabled": false, "defaultAction": false },
-    { "alias": "VERIFY_EMAIL", "enabled": false, "defaultAction": false },
-    { "alias": "CONFIGURE_TOTP", "enabled": false, "defaultAction": false }
+    {
+      "alias": "UPDATE_PASSWORD",
+      "enabled": false,
+      "defaultAction": false
+    },
+    {
+      "alias": "UPDATE_PROFILE",
+      "enabled": false,
+      "defaultAction": false
+    },
+    {
+      "alias": "VERIFY_EMAIL",
+      "enabled": false,
+      "defaultAction": false
+    },
+    {
+      "alias": "CONFIGURE_TOTP",
+      "enabled": false,
+      "defaultAction": false
+    }
   ],
-
   "roles": {
     "realm": [
-      { "name": "ADMIN", "description": "Administrator role" },
-      { "name": "CLIENT_CREATE", "description": "Create client role" },
-      { "name": "CLIENT_GET", "description": "Get client role" },
-      { "name": "CLIENT_SEARCH", "description": "Search client role" },
-      { "name": "UPDATE_BALANCE", "description": "Update account balance role" },
-      { "name": "offline_access", "description": "Offline access role" }
+      {
+        "name": "ADMIN",
+        "description": "Administrator role"
+      },
+      {
+        "name": "CLIENT_CREATE",
+        "description": "Create client role"
+      },
+      {
+        "name": "CLIENT_GET",
+        "description": "Get client role"
+      },
+      {
+        "name": "CLIENT_SEARCH",
+        "description": "Search client role"
+      },
+      {
+        "name": "UPDATE_BALANCE",
+        "description": "Update account balance role"
+      },
+      {
+        "name": "offline_access",
+        "description": "Offline access role"
+      }
     ]
   },
-
   "users": [
     {
       "username": "user",
@@ -38,9 +78,19 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [
-        { "type": "password", "value": "password", "temporary": false }
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
       ],
-      "realmRoles": ["CLIENT_CREATE", "CLIENT_GET", "CLIENT_SEARCH", "UPDATE_BALANCE", "offline_access"]
+      "realmRoles": [
+        "CLIENT_CREATE",
+        "CLIENT_GET",
+        "CLIENT_SEARCH",
+        "UPDATE_BALANCE",
+        "offline_access"
+      ]
     },
     {
       "id": "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
@@ -49,92 +99,135 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [
-        { "type": "password", "value": "admin", "temporary": false }
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
       ],
-      "realmRoles": ["ADMIN", "offline_access"]
+      "realmRoles": [
+        "ADMIN",
+        "offline_access"
+      ]
     },
     {
       "username": "service-account-resource-server",
       "enabled": true,
       "serviceAccountClientId": "resource-server",
       "clientRoles": {
-        "realm-management": ["manage-users"]
+        "realm-management": [
+          "manage-users"
+        ]
       }
     }
   ],
-
   "clients": [
     {
       "clientId": "spring-app",
       "enabled": true,
       "protocol": "openid-connect",
-
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "vYbuDDmT4ouy6vBn6ZzaEPkmaMSHfvab",
-
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "implicitFlowEnabled": false,
-
       "attributes": {
         "oauth2.device.authorization.grant.enabled": "false",
         "token.exchange.enabled": "false",
         "backchannel.logout.session.required": "false",
         "backchannel.logout.revoke.offline.tokens": "false"
       },
-
       "redirectUris": [],
       "webOrigins": [],
-
       "defaultClientScopes": [
         "basic",
         "roles",
         "profile",
         "email"
       ],
-      "optionalClientScopes": ["offline_access"]
+      "optionalClientScopes": [
+        "offline_access"
+      ]
     },
     {
       "clientId": "resource-server",
       "enabled": true,
       "protocol": "openid-connect",
-
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "A64B28FBDC31B2BC068CAFC793DB5FEA",
-
-      "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
       "implicitFlowEnabled": false,
-
       "attributes": {
         "oauth2.device.authorization.grant.enabled": "false",
         "token.exchange.enabled": "false"
       },
-
-      "redirectUris": [],
+      "redirectUris": [
+        "http://localhost:8081/api/auth/callback"
+      ],
       "webOrigins": [],
-
-      "defaultClientScopes": [],
-      "optionalClientScopes": []
+      "defaultClientScopes": [
+        "basic",
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "spring-boot-template",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "oauth2.device.authorization.grant.enabled": "false",
+        "backchannel.logout.session.required": "false"
+      },
+      "redirectUris": [
+        "http://localhost:4200/auth/callback",
+        "http://localhost:8081/api/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:4200"
+      ],
+      "defaultClientScopes": [
+        "basic",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
     }
   ],
-
   "clientScopes": [
     {
       "name": "basic",
       "protocol": "openid-connect",
-      "attributes": { "include.in.token.scope": "false" },
+      "attributes": {
+        "include.in.token.scope": "false"
+      },
       "protocolMappers": [
         {
           "name": "sub",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-sub-mapper",
           "consentRequired": false,
-          "config": { "access.token.claim": "true", "introspection.token.claim": "true" }
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
         }
       ]
     },
@@ -177,7 +270,9 @@
     {
       "name": "profile",
       "protocol": "openid-connect",
-      "attributes": { "include.in.token.scope": "true" },
+      "attributes": {
+        "include.in.token.scope": "true"
+      },
       "protocolMappers": [
         {
           "name": "given name",
@@ -212,12 +307,16 @@
     {
       "name": "email",
       "protocol": "openid-connect",
-      "attributes": { "include.in.token.scope": "true" }
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
     },
     {
       "name": "offline_access",
       "protocol": "openid-connect",
-      "attributes": { "include.in.token.scope": "true" }
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
     }
   ]
 }
