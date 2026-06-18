@@ -67,7 +67,8 @@ Keycloak (el servidor)
     │   ├── spring-app                 ← la app/front que hace login de usuarios
     │   └── resource-server            ← la API (service account)
     ├── Client Scopes                  ← qué claims/roles entran en el token
-    └── Identity Providers             ← Google, GitHub... (login social) [no configurado aún]
+    └── Identity Providers
+        └── google                     ← broker hacia Google OAuth2 (configurado)
 ----
 
 == Los actores dentro del Realm
@@ -108,19 +109,28 @@ Un *client* representa a una *aplicación* que confía en Keycloak (no a una per
 |SPAs/mobile, donde no se puede esconder un secreto.
 |===
 
-En este proyecto ambos clients son *confidenciales*:
+El realm tiene tres clients:
 
-[cols="1,2"]
+[cols="1,1,2"]
 |===
-|Client |Para qué sirve
+|Client |Tipo |Para qué sirve
 
 |`spring-app`
-|Representa la aplicación que hace login de usuarios (usuario + contraseña). Tiene activado
-`directAccessGrants` (flujo password) y `standardFlow` (flujo de redirección/código).
+|Confidencial
+|Login de usuarios con usuario + contraseña (flujo `directAccessGrants`). También tiene
+`standardFlow` activado. Usado por `/api/auth/login` y `/api/auth/register`.
 
 |`resource-server`
-|Representa la API. Es una *service account* (cuenta de máquina, sin usuario humano) con permiso
-`manage-users` para crear usuarios vía la Admin API, y se usa para *introspección* de tokens.
+|Confidencial
+|El backend actúa como cliente OAuth2 para el flujo de autorización con Google. Tiene
+`serviceAccountsEnabled` (cuenta de máquina con permiso `manage-users` para la Admin API) y
+`redirectUri: http://localhost:8081/api/auth/callback`. Se usa también para introspección de tokens.
+
+|`spring-boot-template`
+|*Público* (SPA)
+|Cliente público con PKCE (`S256`). Pensado para que el frontend pueda iniciar el flujo de
+autorización directamente. `redirectUris`: `http://localhost:4200/auth/callback` y
+`http://localhost:8081/api/auth/callback`. `webOrigins`: `http://localhost:4200`.
 |===
 
 === Roles
@@ -296,6 +306,150 @@ curl -X POST \
 
 La respuesta trae `access_token` y `refresh_token`. Ese mismo intercambio es el que hace por vos el
 endpoint `/api/auth/login`.
+
+== Login con Google: configuración paso a paso
+
+Esta sección documenta los pasos exactos para habilitar el login social con Google en este proyecto.
+Son tres etapas: Google Cloud Console → Keycloak Identity Provider → variables de entorno.
+
+=== 1. Google Cloud Console — crear las credenciales OAuth2
+
+. Ir a https://console.cloud.google.com y seleccionar (o crear) un proyecto.
+. En el menú izquierdo: *APIs & Services → Credentials*.
+. Clic en *Create Credentials → OAuth client ID*.
+. En *Application type* seleccionar *Web application*.
+. En *Authorized redirect URIs* agregar exactamente:
++
+----
+http://localhost:8080/realms/spring-boot-template/broker/google/endpoint
+----
++
+Este es el endpoint del broker de Keycloak. Google redirige aquí luego del login.
+. Guardar. Google devuelve un *Client ID* y un *Client Secret* — copiarlos.
+
+[NOTE]
+====
+Para producción hay que agregar la URL pública de Keycloak en lugar de `localhost:8080`.
+La estructura siempre es: `{keycloak-url}/realms/{realm}/broker/google/endpoint`.
+====
+
+=== 2. Keycloak — configurar el Identity Provider Google
+
+. Abrir la consola de Keycloak: `http://localhost:8080`.
+. Seleccionar el realm *spring-boot-template* (arriba a la izquierda).
+. En el menú izquierdo: *Identity Providers → Add provider → Google*.
+. Completar los campos:
++
+[cols="1,2"]
+|===
+|Campo |Valor
+
+|Client ID
+|El Client ID de Google Cloud Console
+
+|Client Secret
+|El Client Secret de Google Cloud Console
+
+|Default Scopes
+|`openid profile email`
+
+|Trust Email
+|Activado (evita el paso de verificación de email para usuarios de Google)
+
+|Store Tokens
+|Activado (necesario para que Keycloak propague los refresh tokens)
+|===
++
+. Guardar.
+
+Keycloak ya sabe cómo hablar con Google. El `kc_idp_hint=google` que envía el backend en la URL
+de autorización hace que Keycloak salte su propia pantalla de login y redirija directo a Google.
+
+=== 3. Variables de entorno — lo que necesita el backend
+
+El backend no habla con Google directamente. Habla con Keycloak usando el client `resource-server`.
+Las únicas variables que hay que configurar son:
+
+[source,bash]
+----
+KEYCLOAK_RESOURCE_CLIENT_ID=resource-server
+KEYCLOAK_RESOURCE_CLIENT_SECRET=<secret-del-client-resource-server>  # realm-export.json → clients[resource-server].secret
+KEYCLOAK_OAUTH2_REDIRECT_URI=http://localhost:8081/api/auth/callback
+KEYCLOAK_OAUTH2_FRONTEND_CALLBACK_URL=http://localhost:4200/auth/callback
+----
+
+El secret de Google va solo dentro de Keycloak (paso 2). El backend no lo necesita.
+
+=== 4. Flujo completo end-to-end
+
+Este es el recorrido exacto de una autenticación con Google en este proyecto:
+
+----
+[1] Frontend        GET /api/auth/google/initiate
+                    ← { authorizationUrl: "https://keycloak/.../auth?...&kc_idp_hint=google&state=XYZ" }
+
+[2] Frontend        Redirige el browser a authorizationUrl
+
+[3] Keycloak        Ve kc_idp_hint=google → omite su pantalla, redirige a Google
+
+[4] Google          Muestra login (con prompt=select_account, el usuario puede elegir cuenta)
+
+[5] Google          Autentica → redirige al broker de Keycloak:
+                    GET /realms/spring-boot-template/broker/google/endpoint?code=...
+
+[6] Keycloak        Crea o actualiza el usuario en el realm → redirige al backend:
+                    GET /api/auth/callback?code=AUTH_CODE&state=XYZ
+
+[7] Backend         Valida CSRF state (cookie vs. query param)
+                    POST /token con grant_type=authorization_code, client_id=resource-server
+                    ← { access_token, refresh_token, expires_in }
+
+[8] Backend         Escribe refresh_token en cookie HttpOnly SameSite=Lax
+                    Redirige a: http://localhost:4200/auth/callback?access_token=AT&expires_in=300
+
+[9] Frontend        Lee access_token del query param, lo guarda en memoria
+                    Limpia la URL con replaceState
+----
+
+.¿Por qué SameSite=Lax y no Strict?
+[NOTE]
+====
+El paso [6] es una redirección GET cross-site (Google → Keycloak → localhost:8081). Con
+`SameSite=Strict` el browser bloquea el envío de cookies en estas navegaciones de primer nivel
+provenientes de otro origen. `SameSite=Lax` permite el envío en navegaciones GET de primer nivel,
+que es exactamente el caso aquí. Por eso el cookie del refresh token usa `Lax`.
+====
+
+.¿Por qué hay dos URLs de Keycloak (auth-server-url vs public-auth-server-url)?
+[NOTE]
+====
+`keycloak.auth-server-url` se usa para llamadas servidor-a-servidor (token endpoint, introspection,
+Admin API) — puede ser una URL de red interna. `keycloak.public-auth-server-url` se usa para
+construir URLs que *el browser del usuario* va a seguir — tiene que ser una URL accesible desde
+el cliente. En desarrollo ambas son `http://localhost:8080`.
+====
+
+=== 5. Probarlo localmente
+
+Con Docker Compose corriendo y el Identity Provider de Google configurado en Keycloak:
+
+[source,bash]
+----
+# 1. Pedir la URL de autorización
+curl http://localhost:8081/api/auth/google/initiate
+
+# La respuesta tiene authorizationUrl. Abrirla en el browser → Google login.
+# Keycloak redirige a /api/auth/callback → el backend escribe la cookie y redirige al frontend.
+----
+
+Para verificar que el Identity Provider está activo en Keycloak:
+
+[source,bash]
+----
+# Listar los identity providers del realm
+curl http://localhost:8080/realms/spring-boot-template/.well-known/openid-configuration \
+  | python3 -m json.tool | grep authorization_endpoint
+----
 
 == Para seguir aprendiendo
 
