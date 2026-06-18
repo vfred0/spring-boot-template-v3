@@ -368,17 +368,32 @@ de autorización hace que Keycloak salte su propia pantalla de login y redirija 
 === 3. Variables de entorno — lo que necesita el backend
 
 El backend no habla con Google directamente. Habla con Keycloak usando el client `resource-server`.
-Las únicas variables que hay que configurar son:
+
+[IMPORTANT]
+====
+La configuración de *Keycloak* (redirect URIs válidas, client secret del client, scopes) viene del
+`keycloak/realm-export.json`, que Keycloak importa automáticamente al arrancar con Docker Compose.
+*No hay nada que configurar a mano en la UI de Keycloak para el client `resource-server`.*
+
+Las variables de entorno que siguen son solo para el *backend Spring Boot* — le dicen qué valores
+usar cuando construye las requests hacia Keycloak.
+====
 
 [source,bash]
 ----
+# Le dice al backend con qué client autenticarse al intercambiar el código OAuth2
 KEYCLOAK_RESOURCE_CLIENT_ID=resource-server
-KEYCLOAK_RESOURCE_CLIENT_SECRET=<secret-del-client-resource-server>  # realm-export.json → clients[resource-server].secret
+KEYCLOAK_RESOURCE_CLIENT_SECRET=<secret-del-client-resource-server>
+
+# DEBE coincidir con el redirectUri del client en realm-export.json.
+# Si no coinciden, Keycloak rechaza el intercambio (redirect_uri mismatch).
 KEYCLOAK_OAUTH2_REDIRECT_URI=http://localhost:8081/api/auth/callback
+
+# A dónde redirige el backend al usuario una vez que tiene el access_token
 KEYCLOAK_OAUTH2_FRONTEND_CALLBACK_URL=http://localhost:4200/auth/callback
 ----
 
-El secret de Google va solo dentro de Keycloak (paso 2). El backend no lo necesita.
+El secret de Google va solo dentro de Keycloak (paso 2). El backend no lo toca.
 
 === 4. Flujo completo end-to-end
 
