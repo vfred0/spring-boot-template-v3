@@ -50,13 +50,20 @@ public class GoogleOAuthResource {
     @Operation(summary = "OAuth2 callback",
             description = "Receives the authorization code from Keycloak, exchanges it for tokens, and redirects to the frontend.")
     public void handleOAuthCallback(
-            @RequestParam String code,
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String error,
             @RequestParam String state,
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {
 
         String cookieState = stateManager.extract(request);
         stateManager.clear(response);
+
+        if (error != null) {
+            log.warn("OAuth2 callback received error from Keycloak: {}", error);
+            response.sendRedirect(buildFrontendUrl("error", error));
+            return;
+        }
 
         if (!isStateValid(state, cookieState)) {
             log.warn("OAuth2 state mismatch — possible CSRF attempt");
@@ -66,6 +73,12 @@ public class GoogleOAuthResource {
 
         try {
             KeycloakTokenResponse tokens = oAuthService.exchangeCode(code);
+            if (!StringUtils.hasText(tokens.getRefreshToken())) {
+                log.error("OAuth2 exchange succeeded but refresh_token is missing from Keycloak response");
+                response.sendRedirect(buildFrontendUrl("error", "auth_failed"));
+                return;
+            }
+            log.info("OAuth2 exchange succeeded, writing refresh_token cookie (expires_in={}s)", tokens.getRefreshExpiresIn());
             cookieWriter.write(response, tokens.getRefreshToken(), (int) tokens.getRefreshExpiresIn());
             response.sendRedirect(buildFrontendSuccessUrl(tokens));
         } catch (KeycloakAuthException ex) {

@@ -30,13 +30,14 @@ public class GoogleOAuthService {
     private final RestTemplate rest;
 
     public String buildAuthorizationUrl(String state) {
-        return UriComponentsBuilder.fromUriString(props.getAuthorizationUrl())
+        return UriComponentsBuilder.fromUriString(props.getPublicAuthorizationUrl())
                 .queryParam("response_type", "code")
                 .queryParam("client_id", props.getResourceClientId())
                 .queryParam("scope", "openid profile email")
                 .queryParam("redirect_uri", props.getOauth2RedirectUri())
                 .queryParam("state", state)
                 .queryParam("kc_idp_hint", "google")
+                .queryParam("prompt", "select_account")
                 .toUriString();
     }
 
