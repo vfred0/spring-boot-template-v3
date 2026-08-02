@@ -1,0 +1,100 @@
+@startuml activity-rename-project
+!define USE_MOCHA
+!include utils/theme.puml
+
+skinparam activityArrowThickness 2
+skinparam roundcorner 8
+skinparam activityBackgroundColor #DDEEFF
+skinparam activityBorderColor #2C3E50
+skinparam activityBorderThickness 2
+skinparam activityDiamondBackgroundColor #FFF9C4
+skinparam activityDiamondBorderColor #2C3E50
+skinparam backgroundColor #FFFFFF
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #999999
+
+title rename-project.py — Execution Flow
+
+|CLI|
+start
+:Parse arguments\n--package  --name  --dry-run  --yes;
+
+if (valid kebab-case name\nand dotted lower-case package?) then (no)
+  #FFCCCC:Print error → exit 1;
+  stop
+endif
+
+if (--package == com.template?) then (yes)
+  #FFCCCC:Nothing to do → exit 1;
+  stop
+endif
+
+|Filesystem|
+:git rev-parse --show-toplevel\n(or cwd as fallback);
+:Check settings.gradle.kts exists\nCheck src/main/java/com/template/ exists;
+
+if (template state valid?) then (no)
+  #FFCCCC:Print error → exit 1;
+  stop
+endif
+
+:git status --porcelain;
+if (uncommitted changes?) then (yes)
+  :Print warning to stderr\n(do not stop);
+endif
+
+|CLI|
+:Print rename plan\npackage: com.template → <new_package>\nname: spring-boot-template → <new_name>;
+
+if (--dry-run?) then (yes)
+  |Filesystem|
+  :Enumerate files\n(git ls-files -z or rglob);
+  |Content|
+  :Print each file that would be edited;
+  |Filesystem|
+  :Print package dir moves (no writes);
+  #CCFFCC:dry-run complete — exit 0;
+  stop
+endif
+
+|CLI|
+if (--yes?) then (no)
+  :Prompt [y/N];
+  if (user confirmed?) then (no)
+    #FFCCCC:aborted → exit 1;
+    stop
+  endif
+endif
+
+|Filesystem|
+:Collect files via git ls-files -z;
+note right
+  + .env if present (not tracked)
+  - Binary files skipped (UTF-8 decode fail)
+  - build/ .gradle/ logs/ .idea/ excluded
+end note
+
+|Content|
+while (next file?) is (yes)
+  :read_bytes() → decode UTF-8;
+  if (contains com.template\nor spring-boot-template?) then (yes)
+    :Replace com.template → new_package\nReplace spring-boot-template → new_name;
+    :write_bytes() (preserves CRLF);
+  endif
+endwhile (no)
+:Print "files touched: N";
+
+|Git|
+:git mv src/main/java/com/template\n→ src/main/java/<new/pkg>;
+:git mv src/test/java/com/template\n→ src/test/java/<new/pkg>;
+note right
+  Falls back to shutil.move
+  when outside a git repo.
+  Cleans up empty parent dirs.
+end note
+
+|CLI|
+#CCFFCC:done — git diff  →  ./gradlew build\nthen remove scripts/rename-project.py;
+stop
+
+@enduml

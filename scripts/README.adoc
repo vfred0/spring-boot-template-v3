@@ -1,0 +1,60 @@
+= Project Scripts
+
+== rename-project.py
+
+One-shot bootstrap to rebrand this template to a new project identity.
+Replaces the two template tokens across the whole repo and moves the Java package.
+Requires Python 3 (stdlib only — no pip packages needed).
+
+[cols="1,3"]
+|===
+|Token |Becomes
+
+|`com.template` (Java base package + Gradle group)
+|`--package` value (e.g. `com.acme.billing`)
+
+|`spring-boot-template` (artifact, `spring.application.name` default, `KEYCLOAK_REALM` default, Docker service/db/network/volume names, Keycloak realm and SPA client)
+|`--name` value (e.g. `billing-service`)
+|===
+
+=== Usage
+
+[source,sh]
+----
+# Linux / Mac — preview, writes nothing
+python3 scripts/rename-project.py --package com.acme.billing --name billing-service --dry-run
+
+# Linux / Mac — apply
+python3 scripts/rename-project.py --package com.acme.billing --name billing-service
+----
+
+[source,powershell]
+----
+# Windows — preview, writes nothing
+python scripts\rename-project.py --package com.acme.billing --name billing-service --dry-run
+
+# Windows — apply
+python scripts\rename-project.py --package com.acme.billing --name billing-service
+----
+
+[source,sh]
+----
+# Then verify and drop the one-shot script (Linux/Mac)
+./gradlew build
+rm scripts/rename-project.py scripts/rename-project.sh
+----
+
+[source,powershell]
+----
+# Then verify and drop the one-shot script (Windows)
+.\gradlew.bat build
+del scripts\rename-project.py, scripts\rename-project.sh
+----
+
+=== Notes
+
+* Run from the repository root on a clean git tree (so the rename stays reversible via `git reset`).
+* Scope is git-tracked files plus a local `.env`; `build/`, `logs/`, `.gradle/` and `.idea/` are excluded.
+* Binary files are skipped automatically (UTF-8 decode failure).
+* The realm name is read by the app and the Docker import from `KEYCLOAK_REALM` (default in `.env`); the canonical realm lives in `keycloak/realm-export.json`.
+* The rename also updates the Keycloak SPA client ID (`spring-boot-template` on line 208 of `realm-export.json`).
