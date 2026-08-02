@@ -16,10 +16,10 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
   file:
-    name: ./logs/spring-boot-template.log
+    name: ./logs/${spring.application.name}.log
   logback:
     rollingpolicy:
       max-file-size: 10MB
       max-history: 7
       total-size-cap: 100MB
-      file-name-pattern: "./logs/spring-boot-template-%d{yyyy-MM-dd}.%i.gz"
+      file-name-pattern: "./logs/${spring.application.name}-%d{yyyy-MM-dd}.%i.gz"

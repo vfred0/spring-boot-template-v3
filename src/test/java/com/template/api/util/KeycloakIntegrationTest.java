@@ -1,6 +1,7 @@
 package com.template.api.util;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.template.config.keycloak.KeycloakProperties;
 import com.template.config.security.RateLimitingFilter;
 import org.junit.jupiter.api.BeforeAll;
@@ -8,6 +9,8 @@ import org.springframework.cache.CacheManager;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
+
+import java.io.InputStream;
 
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -37,7 +40,7 @@ public abstract class KeycloakIntegrationTest extends AbstractIntegrationTest {
     static void registerResourceServerIssuerProperty(DynamicPropertyRegistry registry) {
         if (keycloak != null && keycloak.isRunning()) {
             String authServerUrl = keycloak.getAuthServerUrl();
-            String realm = "spring-boot-template";
+            String realm = resolveRealmName();
 
             registry.add("keycloak.auth-server-url", () -> authServerUrl);
             registry.add("keycloak.realm", () -> realm);
@@ -52,6 +55,15 @@ public abstract class KeycloakIntegrationTest extends AbstractIntegrationTest {
                     () -> "A64B28FBDC31B2BC068CAFC793DB5FEA");
             registry.add("keycloak.resource-client-id", () -> "resource-server");
             registry.add("keycloak.resource-client-secret", () -> "A64B28FBDC31B2BC068CAFC793DB5FEA");
+        }
+    }
+
+    private static String resolveRealmName() {
+        try (InputStream stream = KeycloakIntegrationTest.class.getClassLoader()
+                .getResourceAsStream("keycloak/realm-export.json")) {
+            return new ObjectMapper().readTree(stream).get("realm").asText();
+        } catch (Exception cause) {
+            throw new IllegalStateException("Cannot read realm name from realm-export.json", cause);
         }
     }
 }
