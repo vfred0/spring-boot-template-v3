@@ -514,4 +514,4 @@ curl http://localhost:8080/realms/spring-boot-template/.well-known/openid-config
 
 * Documentación oficial: https://www.keycloak.org/documentation
 * OpenID Connect explicado: https://openid.net/developers/how-connect-works/
-* En este repo: `docs/README.adoc` (arquitectura de seguridad) y los diagramas `docs/seq-*.puml`.
+* En este repo: `docs/README.adoc` (arquitectura de seguridad) y los diagramas `docs/src/seq-*.puml`.

@@ -1,0 +1,4 @@
+@startuml settings
+skinparam roundcorner 20
+top to bottom direction
+@enduml

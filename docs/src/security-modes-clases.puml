@@ -1,0 +1,100 @@
+@startuml security-modes-clases
+!include settings.puml
+
+title Security Modes — app.security.mode (Strategy via @ConditionalOnProperty)
+
+package "config.security" {
+    enum SecurityMode {
+        KEYCLOAK_OPAQUE
+        KEYCLOAK_JWT
+        API_KEY
+    }
+
+    class SecurityProperties <<ConfigurationProperties>> {
+        ' @ConfigurationProperties(prefix = "app.security")
+        - mode : SecurityMode = KEYCLOAK_OPAQUE
+    }
+
+    SecurityProperties o--> "1" SecurityMode : mode
+
+    class RateLimitingFilter
+    class JsonAuthEntryPoint
+    class JsonAccessDeniedHandler
+}
+
+package "config.dpop" {
+    class DpopAuthenticationFilter
+    class DpopAwareBearerTokenResolver
+    note bottom of DpopAuthenticationFilter
+        RFC 9449 — sender-constrained tokens (proof of key possession).
+        Shared by both Keycloak modes; API_KEY does not use it.
+    end note
+}
+
+package "config" {
+    class OAuth2SecurityConfig <<Configuration>> {
+        ' @ConditionalOnProperty(name = "app.security.mode",
+        '   havingValue = "KEYCLOAK_OPAQUE", matchIfMissing = true)
+        + securityFilterChain(HttpSecurity) : SecurityFilterChain
+    }
+}
+
+package "config.keycloak" {
+    class KeycloakJwtSecurityConfig <<Configuration>> {
+        ' @ConditionalOnProperty(name = "app.security.mode", havingValue = "KEYCLOAK_JWT")
+        + securityFilterChain(HttpSecurity) : SecurityFilterChain
+    }
+
+    class KeycloakOpaqueTokenIntrospector
+    class NimbusJwtDecoder
+    note bottom of KeycloakOpaqueTokenIntrospector
+        Validates against Keycloak's /introspect endpoint on every
+        request — immediate revocation, extra network round-trip.
+    end note
+    note bottom of NimbusJwtDecoder
+        Validates the JWT signature locally against Keycloak's JWK set
+        — no per-request call to Keycloak, revocation only on expiry.
+    end note
+}
+
+package "config.api_key" {
+    class ApiKeySecurityConfig <<Configuration>> {
+        ' @ConditionalOnProperty(name = "app.security.mode", havingValue = "API_KEY")
+        + securityFilterChain(HttpSecurity) : SecurityFilterChain
+    }
+    class ApiKeyAuthenticationFilter
+    note bottom of ApiKeyAuthenticationFilter
+        No Keycloak involved — validates against API keys persisted
+        in the "security" DB schema. Intended for machine-to-machine
+        clients (no interactive login).
+    end note
+}
+
+OAuth2SecurityConfig ..> KeycloakOpaqueTokenIntrospector : uses
+KeycloakJwtSecurityConfig ..> NimbusJwtDecoder : uses
+ApiKeySecurityConfig ..> ApiKeyAuthenticationFilter : uses
+
+OAuth2SecurityConfig ..> DpopAuthenticationFilter : uses
+KeycloakJwtSecurityConfig ..> DpopAuthenticationFilter : uses
+
+OAuth2SecurityConfig ..> RateLimitingFilter : uses
+KeycloakJwtSecurityConfig ..> RateLimitingFilter : uses
+ApiKeySecurityConfig ..> RateLimitingFilter : uses
+
+OAuth2SecurityConfig ..> JsonAuthEntryPoint : uses
+KeycloakJwtSecurityConfig ..> JsonAuthEntryPoint : uses
+ApiKeySecurityConfig ..> JsonAuthEntryPoint : uses
+
+OAuth2SecurityConfig ..> JsonAccessDeniedHandler : uses
+KeycloakJwtSecurityConfig ..> JsonAccessDeniedHandler : uses
+ApiKeySecurityConfig ..> JsonAccessDeniedHandler : uses
+
+note as N1
+    Exactly one @Configuration activates at a time, selected by
+    @ConditionalOnProperty(name = "app.security.mode", havingValue = "...").
+    All three build a stateless SecurityFilterChain with CSRF disabled.
+    The two Keycloak-backed modes additionally wire
+    DpopAuthenticationFilter / DpopAwareBearerTokenResolver — API_KEY skips them.
+end note
+
+@enduml

@@ -1,0 +1,10 @@
+@startuml states
+!include directions.puml
+
+!define INITIAL_STATE [*]
+!define FINAL_STATE [*]
+
+
+!define state(init, finish, direction=DOWN) init -direction-> finish
+
+@enduml

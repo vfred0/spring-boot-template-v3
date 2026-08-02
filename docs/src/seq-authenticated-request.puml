@@ -1,4 +1,6 @@
-@startuml authenticated-request-flow
+@startuml seq-authenticated-request
+!define USE_MOCHA
+!include utils/theme.puml
 
 title Authenticated Request — AT in Memory + Opaque Token Introspection
 
@@ -15,6 +17,13 @@ participant "KeycloakOpaqueRoleConverter"    as conv  #LightBlue
 participant "DpopAuthenticationFilter"       as dpop  #LightCoral
 participant "Controller"                     as ctrl  #LightBlue
 database    "Your DB (RBAC)"                 as db    #LightYellow
+
+note over btf, intro
+  This diagram assumes app.security.mode=KEYCLOAK_OPAQUE (default).
+  See docs/src/security-modes-clases.puml for the other two modes
+  (KEYCLOAK_JWT — local signature validation, no per-request Keycloak call;
+  API_KEY — no Keycloak, validated against app DB, for machine-to-machine clients).
+end note
 
 user  -> spa   : performs action
 spa   -> inter : outgoing HTTP request

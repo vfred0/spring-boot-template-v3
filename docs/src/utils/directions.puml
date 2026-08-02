@@ -1,0 +1,6 @@
+@startuml _
+!define RIGHT right
+!define LEFT left
+!define UP up
+!define DOWN down
+@enduml

@@ -1,0 +1,16 @@
+@startuml use-case-relationship
+
+!define includesRelation(all, part) (all) ..> (part): <<includes>>
+
+!define extendsRelation(all, part) (all) <.. (part): <<extends>>
+
+!define inheritsRelation(all, part) all <|-- part
+
+!define useCase(acctor, useCase) acctor --> (useCase)
+' ----- include / extend helpers -----
+!define includesRelation(all, part) (all) ..> (part) : <<include>>
+
+' NUEVO: extend con etiqueta
+!define extendsRelation(all, base, label) (all) ..> (base) : <<extend>>\\n{label}
+
+@enduml

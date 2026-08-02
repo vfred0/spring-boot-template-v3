@@ -1,4 +1,6 @@
-@startuml refresh-logout-flow
+@startuml seq-refresh-logout
+!define USE_MOCHA
+!include utils/theme.puml
 
 title Token Refresh (Cookie-based) & Logout
 

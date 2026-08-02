@@ -1,0 +1,6 @@
+@startuml _
+!include utils/class-relationship.puml
+!include utils/settings.puml
+!define USE_MOCHA
+!include utils/theme.puml
+@enduml

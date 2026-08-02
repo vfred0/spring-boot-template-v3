@@ -1,0 +1,99 @@
+@startuml request-async-actividad
+!define USE_MOCHA
+!include utils/theme.puml
+
+!ifdef USE_MOCHA
+  skinparam activity {
+    BackgroundColor<<PRE>> CP_MOCHA_mauve
+    FontColor<<PRE>> CP_MOCHA_base
+    BackgroundColor<<POST>> CP_MOCHA_green
+    FontColor<<POST>> CP_MOCHA_base
+    BackgroundColor<<ERROR>> CP_MOCHA_red
+    FontColor<<ERROR>> CP_MOCHA_base
+    BackgroundColor<<SUCCESS>> CP_MOCHA_blue
+    FontColor<<SUCCESS>> CP_MOCHA_base
+  }
+!else
+  skinparam activity {
+    BackgroundColor<<PRE>> CP_LATTE_mauve
+    FontColor<<PRE>> CP_LATTE_base
+    BackgroundColor<<POST>> CP_LATTE_green
+    FontColor<<POST>> CP_LATTE_base
+    BackgroundColor<<ERROR>> CP_LATTE_red
+    FontColor<<ERROR>> CP_LATTE_base
+    BackgroundColor<<SUCCESS>> CP_LATTE_blue
+    FontColor<<SUCCESS>> CP_LATTE_base
+  }
+!endif
+
+title Asynchronous Request Processing — Virtual Threads (Quartz removed)
+
+|Client|
+start
+:**PRECONDITION**\n· POST /api/clients (create-client request)\n· CreateClientRequest body; <<PRE>>
+
+|RequestService|
+:submitClientCreateRequest(createClientRequest);
+:Build Request\n(id=UUID, status=PENDING, requestData=JSON);
+:RequestRepository.save(request)\n@Transactional — commits synchronously;
+:**POSTCONDITION**\n· Request row committed with status=PENDING\n· caller does not wait for processing; <<POST>>
+
+|Client|
+:✔  HTTP 202 Accepted\n{ id, status: PENDING }; <<SUCCESS>>
+
+|RequestService|
+:Call requestProcessingService\n.processClientCreateRequest(id)\n(outside any transaction);
+
+|RequestProcessingService|
+:**PRECONDITION**\n· @Async method\n· spring.threads.virtual.enabled=true\n· no manual TaskExecutor bean\n  → Spring Boot autoconfigures\n    applicationTaskExecutor on virtual threads; <<PRE>>
+:Dispatched on a virtual thread;
+note right
+  No Quartz in this flow. Quartz was removed from this project by
+  architectural decision — it was being misused as a fire-once
+  dispatcher instead of for its intended purpose (recurring /
+  distributed scheduling).
+end note
+:RequestStateService.markProcessing(id);
+
+|RequestStateService|
+:Update Request.status = PROCESSING;
+
+|RequestProcessingService|
+:Deserialize CreateClientRequest\nfrom requestData;
+:ClientService.create(createClientRequest);
+
+if (business logic succeeded?) then (yes)
+  :RequestStateService.markCompleted\n(id, ApiResult.ok(clientResponse));
+  |RequestStateService|
+  :Update Request.status = COMPLETED\n+ responseData = serialized result; <<SUCCESS>>
+else (no)
+  |RequestProcessingService|
+  :✘  Catch exception inside the @Async method\n(never propagates to the caller); <<ERROR>>
+  :RequestStateService.markFailed\n(id, ApiResult.error(...));
+  |RequestStateService|
+  :Update Request.status = FAILED\n+ responseData = error payload; <<ERROR>>
+endif
+:**POSTCONDITION**\n· Request reaches a terminal state\n  (COMPLETED or FAILED)\n· exception handling fully encapsulated\n  inside the async method; <<POST>>
+
+|Client|
+:Poll GET /api/requests/{id};
+
+|RequestResource|
+:RequestService.getRequestStatus(id);
+if (Request found?) then (no)
+  :✘  RequestNotFoundException → HTTP 404; <<ERROR>>
+  kill
+else (yes)
+endif
+:Return RequestStatusResponse\n(id, type, status, timestamps, responseData);
+
+|Client|
+if (status == PENDING or PROCESSING?) then (yes)
+  :Poll again after a delay;
+  detach
+else (COMPLETED / FAILED)
+  :✔  Render final result; <<SUCCESS>>
+  stop
+endif
+
+@enduml

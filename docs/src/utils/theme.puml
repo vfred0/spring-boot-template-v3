@@ -1,0 +1,175 @@
+@startuml theme
+
+' ----------------------------------------------------------------
+' Catppuccin themes (Mocha = oscuro, Latte = claro)
+' Para activar: descomentar SOLO UNA de las siguientes líneas:
+' !define USE_MOCHA
+' !define USE_LATTE
+' ----------------------------------------------------------------
+
+' -----------------------
+' Colores: Mocha (oscuro) -- actualizados desde /palete (Mocha)
+' -----------------------
+!define CP_MOCHA_rosewater #f5e0dc
+!define CP_MOCHA_flamingo #f2cdcd
+!define CP_MOCHA_pink #f5c2e7
+!define CP_MOCHA_mauve #cba6f7
+!define CP_MOCHA_red #f38ba8
+!define CP_MOCHA_maroon #eba0ac
+!define CP_MOCHA_peach #fab387
+!define CP_MOCHA_yellow #f9e2af
+!define CP_MOCHA_green #a6e3a1
+!define CP_MOCHA_teal #94e2d5
+!define CP_MOCHA_sky #89dceb
+!define CP_MOCHA_sapphire #74c7ec
+!define CP_MOCHA_blue #89b4fa
+!define CP_MOCHA_lavender #b4befe
+!define CP_MOCHA_text #cdd6f4
+!define CP_MOCHA_subtext1 #bac2de
+!define CP_MOCHA_subtext0 #a6adc8
+!define CP_MOCHA_overlay2 #9399b2
+!define CP_MOCHA_overlay1 #7f849c
+!define CP_MOCHA_overlay0 #6c7086
+!define CP_MOCHA_overlay CP_MOCHA_overlay2
+!define CP_MOCHA_surface2 #585b70
+!define CP_MOCHA_surface1 #45475a
+!define CP_MOCHA_surface0 #313244
+!define CP_MOCHA_base #1e1e2e
+!define CP_MOCHA_mantle #181825
+!define CP_MOCHA_crust #11111b
+
+' -----------------------
+' Colores: Latte (claro) -- actualizados desde /palete (Latte)
+' -----------------------
+!define CP_LATTE_rosewater #dc8a78
+!define CP_LATTE_flamingo #dd7878
+!define CP_LATTE_pink #ea76cb
+!define CP_LATTE_mauve #8839ef
+!define CP_LATTE_red #d20f39
+!define CP_LATTE_maroon #e64553
+!define CP_LATTE_peach #fe640b
+!define CP_LATTE_yellow #df8e1d
+!define CP_LATTE_green #40a02b
+!define CP_LATTE_teal #179299
+!define CP_LATTE_sky #04a5e5
+!define CP_LATTE_sapphire #209fb5
+!define CP_LATTE_blue #1e66f5
+!define CP_LATTE_lavender #7287fd
+!define CP_LATTE_text #4c4f69
+!define CP_LATTE_subtext1 #5c5f77
+!define CP_LATTE_subtext0 #6c6f85
+!define CP_LATTE_overlay2 #7c7f93
+!define CP_LATTE_overlay1 #8c8fa1
+!define CP_LATTE_overlay0 #9ca0b0
+!define CP_LATTE_overlay CP_LATTE_overlay2
+
+!define CP_LATTE_surface2 #acb0be
+!define CP_LATTE_surface1 #bcc0cc
+!define CP_LATTE_surface0 #ccd0da
+!define CP_LATTE_base #eff1f5
+!define CP_LATTE_mantle #e6e9ef
+!define CP_LATTE_crust #dce0e8
+
+skinparam shadowing true
+skinparam roundCorner 10
+skinparam linThickness 1.3
+skinparam arrowThickness 1.5
+skinparam linetype polyline
+
+<style>
+document {
+  Padding 3
+}
+</style>
+
+!ifdef USE_MOCHA
+skinparam backgroundColor CP_MOCHA_base
+skinparam defaultFontColor CP_MOCHA_subtext0
+
+skinparam defaultFontName "Monaspace Neon Medium"
+
+skinparam titleBackgroundColor CP_MOCHA_surface1
+skinparam titleBorderColor CP_MOCHA_overlay
+
+skinparam noteBackgroundColor CP_MOCHA_surface1
+skinparam noteBorderColor CP_MOCHA_overlay
+
+skinparam classBackgroundColor CP_MOCHA_surface2
+skinparam classBorderColor CP_MOCHA_overlay
+skinparam classFontColor CP_MOCHA_subtext1
+skinparam classHeaderBackgroundColor CP_MOCHA_surface1
+skinparam classHeaderFontColor CP_MOCHA_subtext1
+
+skinparam packageBackgroundColor CP_MOCHA_surface1
+skinparam packageBorderColor CP_MOCHA_overlay
+
+skinparam componentBackgroundColor CP_MOCHA_surface2
+skinparam componentBorderColor CP_MOCHA_overlay
+
+skinparam arrowColor CP_MOCHA_lavender
+skinparam sequenceArrowColor CP_MOCHA_blue
+skinparam actorBackgroundColor CP_MOCHA_pink
+skinparam actorBorderColor CP_MOCHA_mauve
+skinparam actorFontColor CP_MOCHA_subtext1
+
+skinparam usecaseBackgroundColor CP_MOCHA_surface1
+skinparam usecaseBorderColor CP_MOCHA_overlay
+skinparam usecaseFontColor CP_MOCHA_subtext1
+skinparam UsecaseBorderThickness 2
+
+skinparam activityBackgroundColor CP_MOCHA_surface1
+skinparam activityBorderColor CP_MOCHA_overlay
+skinparam activityFontColor CP_MOCHA_text
+skinparam activityDiamondBackgroundColor CP_MOCHA_peach
+skinparam activityDiamondBorderColor CP_MOCHA_peach
+skinparam activityDiamondFontColor CP_MOCHA_crust
+skinparam swimlaneBorderColor CP_MOCHA_overlay
+
+!endif
+
+
+!ifdef USE_LATTE
+skinparam backgroundColor CP_LATTE_base
+skinparam defaultFontColor CP_LATTE_text
+
+skinparam defaultFontName "Monaspace Neon Medium"
+
+skinparam titleBackgroundColor CP_LATTE_mantle
+skinparam titleBorderColor CP_LATTE_overlay
+
+skinparam noteBackgroundColor CP_LATTE_mantle
+skinparam noteBorderColor CP_LATTE_overlay
+
+skinparam classBackgroundColor CP_LATTE_mantle
+skinparam classBorderColor CP_LATTE_overlay
+skinparam classFontColor CP_LATTE_text
+skinparam classHeaderBackgroundColor CP_LATTE_surface0
+skinparam classHeaderFontColor CP_LATTE_text
+
+skinparam packageBackgroundColor CP_LATTE_mantle
+skinparam packageBorderColor CP_LATTE_overlay
+
+skinparam componentBackgroundColor CP_LATTE_mantle
+skinparam componentBorderColor CP_LATTE_overlay
+
+skinparam arrowColor CP_LATTE_blue
+skinparam sequenceArrowColor CP_LATTE_sky
+skinparam actorBackgroundColor CP_LATTE_pink
+skinparam actorBorderColor CP_LATTE_mauve
+skinparam actorFontColor CP_LATTE_subtext1
+
+skinparam usecaseBackgroundColor CP_LATTE_mantle
+skinparam usecaseBorderColor CP_MOCHA_overlay
+skinparam usecaseFontColor CP_LATTE_subtext1
+skinparam UsecaseBorderThickness 2
+
+skinparam activityBackgroundColor CP_LATTE_mantle
+skinparam activityBorderColor CP_LATTE_overlay
+skinparam activityFontColor CP_LATTE_text
+skinparam activityDiamondBackgroundColor CP_LATTE_peach
+skinparam activityDiamondBorderColor CP_LATTE_peach
+skinparam activityDiamondFontColor CP_LATTE_base
+skinparam swimlaneBorderColor CP_LATTE_overlay
+!endif
+
+@enduml

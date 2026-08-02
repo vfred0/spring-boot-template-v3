@@ -1,4 +1,6 @@
-@startuml login-flow
+@startuml seq-login
+!define USE_MOCHA
+!include utils/theme.puml
 
 title OAuth2 Login — Secure Token Storage
 
@@ -13,7 +15,7 @@ participant "KeycloakAuthService" as svc   #LightBlue
 participant "Keycloak /token"     as kc    #LightGreen
 
 user -> spa  : enters credentials
-spa  -> ctrl : POST /api/auth/login\n{ username, password, clientId, clientSecret }
+spa  -> ctrl : POST /api/auth/login\n{ username, password }
 ctrl -> svc  : login(request)
 svc  -> kc   : POST /token\ngrant_type=password\nscope=offline_access
 

@@ -1,0 +1,93 @@
+@startuml bulk-durabilidad-actividad
+!define USE_MOCHA
+!include utils/theme.puml
+
+!ifdef USE_MOCHA
+  skinparam activity {
+    BackgroundColor<<PRE>> CP_MOCHA_mauve
+    FontColor<<PRE>> CP_MOCHA_base
+    BackgroundColor<<POST>> CP_MOCHA_green
+    FontColor<<POST>> CP_MOCHA_base
+    BackgroundColor<<ERROR>> CP_MOCHA_red
+    FontColor<<ERROR>> CP_MOCHA_base
+    BackgroundColor<<SUCCESS>> CP_MOCHA_blue
+    FontColor<<SUCCESS>> CP_MOCHA_base
+  }
+!else
+  skinparam activity {
+    BackgroundColor<<PRE>> CP_LATTE_mauve
+    FontColor<<PRE>> CP_LATTE_base
+    BackgroundColor<<POST>> CP_LATTE_green
+    FontColor<<POST>> CP_LATTE_base
+    BackgroundColor<<ERROR>> CP_LATTE_red
+    FontColor<<ERROR>> CP_LATTE_base
+    BackgroundColor<<SUCCESS>> CP_LATTE_blue
+    FontColor<<SUCCESS>> CP_LATTE_base
+  }
+!endif
+
+title Bulk Customer Create — Durability Spike with db-scheduler
+
+|Client|
+start
+:**PRECONDITION**\n· POST /api/customers\n· Set<CustomerRequestDto> (JSON array,\n  not a file upload); <<PRE>>
+
+|CustomerBulkResource|
+:BulkResource.create(dtos);
+:Delegate to CustomerBulkService.create(items);
+
+|BulkService|
+:**PRECONDITION**\n· Set<CustomerRequestDto> items; <<PRE>>
+:validateAll(items)\nvia StructuredTaskScope\n(virtual threads, fan-out — one\nsubtask per item, joined together);
+
+fork
+  :Validate item #1;
+fork again
+  :Validate item #N;
+end fork
+
+if (any item invalid?) then (yes)
+  :Collect ApiFieldError list\nfor invalid items;
+else (no)
+endif
+
+|BulkService|
+:processValid(validItems)\nvia a second StructuredTaskScope\n(virtual threads, fan-out);
+
+fork
+  :onValidCreate(dto #1);
+fork again
+  :onValidCreate(dto #N);
+end fork
+
+|CustomerBulkService|
+:onValidCreate(dto);
+:CustomerBulkCreateDispatcher.schedule(dto);
+
+|CustomerBulkCreateDispatcher|
+:**PRECONDITION**\n· CustomerRequestDto dto\n· OneTimeTask<CustomerRequestDto>\n  (CustomerBulkCreateTask); <<PRE>>
+:scheduler.scheduleIfNotExists(\n  customerBulkCreateTask\n    .schedulableInstance(dto.getId(), dto));
+
+|db-scheduler|
+:Persist task instance in\nPostgres table scheduling.scheduled_tasks\n(BEFORE the HTTP response is returned); <<POST>>
+note right
+  db-scheduler polls its own table every 2s and executes due tasks
+  asynchronously — completely decoupled from the HTTP request thread.
+
+  **Survives a server restart**: the task is persisted in
+  scheduled_tasks, not in memory. Heartbeat mechanism (10s interval,
+  4 missed heartbeats) detects a "dead" execution — e.g. the server
+  crashed mid-task — and automatically revives it on another node.
+end note
+
+|BulkService|
+:**POSTCONDITION**\n· All valid items durably scheduled\n· invalid items collected as errors; <<POST>>
+
+|CustomerBulkResource|
+:✔  ApiResult.bulk(errors, processed, failed); <<SUCCESS>>
+
+|Client|
+:HTTP response returned immediately —\nactual processing happens later, durably;
+stop
+
+@enduml

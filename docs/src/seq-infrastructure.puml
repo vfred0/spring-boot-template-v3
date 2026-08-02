@@ -1,4 +1,6 @@
-@startuml infrastructure-overview
+@startuml seq-infrastructure
+!define USE_MOCHA
+!include utils/theme.puml
 
 title Infrastructure Overview — Docker Compose Components
 
