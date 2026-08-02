@@ -21,14 +21,16 @@ repositories {
 val mapstructVersion = "1.6.3"
 val flywayVersion = "10.22.0"
 val bucket4jVersion = "8.0.1"
-val oauth2OidcSdkVersion = "11.9.1"
 val springdocVersion = "2.8.0"
 val mockitoVersion = "5.20.0"
 val jackson2Version = "2.21.1"
 val modelmapperVersion = "3.2.6"
+val dbSchedulerVersion = "16.12.0"
 
 // Configuración personalizada para extraer el javaagent de Mockito en tiempo de ejecución
-val mockitoAgent by configurations.creating
+val mockitoAgent by configurations.creating {
+    isTransitive = false
+}
 
 dependencies {
     // Jackson Constraint (equivalente a dependencyManagement en Maven)
@@ -44,7 +46,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.security:spring-security-oauth2-jose")
-    implementation("com.nimbusds:oauth2-oidc-sdk:$oauth2OidcSdkVersion")
 
     // Rate Limiting
     implementation("com.bucket4j:bucket4j-core:$bucket4jVersion")
@@ -52,24 +53,23 @@ dependencies {
     // Caching
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("com.github.ben-manes.caffeine:caffeine")
-    implementation("com.github.ben-manes.caffeine:jcache")
-    implementation("javax.cache:cache-api")
 
-    // Data, Quartz & PostgreSQL
+    // Data & PostgreSQL
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-quartz")
     runtimeOnly("org.postgresql:postgresql")
 
     // Flyway
     implementation("org.flywaydb:flyway-core:$flywayVersion")
     implementation("org.flywaydb:flyway-database-postgresql:$flywayVersion")
 
+    // db-scheduler (durable job persistence spike)
+    implementation("com.github.kagkarlsson:db-scheduler-spring-boot-4-starter:$dbSchedulerVersion")
+
     // Http Client
     implementation("org.apache.httpcomponents.client5:httpclient5")
 
     // OpenAPI / Swagger
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:$springdocVersion")
-    runtimeOnly("org.jetbrains.kotlin:kotlin-reflect")
 
     // Lombok, MapStruct & Config Processor
     compileOnly("org.projectlombok:lombok")

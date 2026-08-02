@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.template.service.core.ClientService;
 import com.template.service.core.shared.MessageService;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import java.util.UUID;
 
@@ -26,6 +27,7 @@ public class RequestProcessingService {
     private final ObjectMapper objectMapper;
     private final MessageService messageService;
 
+    @Async
     public void processClientCreateRequest(UUID requestId) {
         Request request = requestStateService.getRequired(requestId);
         requestStateService.markProcessing(requestId);

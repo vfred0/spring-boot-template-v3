@@ -5,7 +5,6 @@ import jakarta.validation.Validator;
 import lombok.extern.slf4j.Slf4j;
 import com.template.api.dtos.customer.CustomerPatchDto;
 import com.template.api.dtos.customer.CustomerRequestDto;
-import com.template.api.http_errors.exceptions.InternalServerErrorException;
 import com.template.data.entities.Address;
 import com.template.data.entities.Customer;
 import com.template.data.entities.PaymentTerm;
@@ -17,31 +16,27 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
 public class CustomerBulkService extends BulkService<CustomerRequestDto, CustomerPatchDto> {
 
     private final Mapper mapper;
-    private final AtomicInteger remainingErrors = new AtomicInteger(1);
+    private final CustomerBulkCreateDispatcher createDispatcher;
 
-    public CustomerBulkService(Validator validator, ValidationRouteRegistry routeRegistry, Mapper mapper) {
+    public CustomerBulkService(Validator validator,
+                                ValidationRouteRegistry routeRegistry,
+                                Mapper mapper,
+                                CustomerBulkCreateDispatcher createDispatcher) {
         super(validator, routeRegistry);
         this.mapper = mapper;
+        this.createDispatcher = createDispatcher;
     }
 
     @Override
     protected void onValidCreate(CustomerRequestDto dto) {
-        log.info("Processing processed dto (create): {}", dto.getId());
-        var customer = this.mapper.mapToCreate(dto, new Customer());
-        if (remainingErrors.decrementAndGet() == 0) {
-            log.warn("Simulating exception for item: {}", dto.getId());
-//            throw new BulkItemProcessingException("dto", null, "[]", new InternalServerErrorException("Simulated conflict error for dto " + dto.getId()));
-            throw   new InternalServerErrorException("Simulated conflict error for dto " + dto.getId());
-        }
-
-        log.info("Mapped customer: {}", customer);
+        log.info("Scheduling durable bulk-create task for dto: {}", dto.getId());
+        createDispatcher.schedule(dto);
     }
 
     @Override

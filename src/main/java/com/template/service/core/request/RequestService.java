@@ -2,19 +2,15 @@ package com.template.service.core.request;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.template.api.dtos.core.ApiResult;
 import com.template.api.dtos.client.CreateClientRequest;
 import com.template.api.dtos.auth.RequestAcceptedResponse;
 import com.template.api.dtos.auth.RequestStatusResponse;
-import com.template.api.http_errors.ApiErrorType;
 import com.template.api.http_errors.exceptions.RequestNotFoundException;
 import com.template.data.entities.core.request.Request;
 import com.template.data.entities.core.request.RequestStatus;
 import com.template.data.entities.core.request.RequestType;
 import com.template.data.daos.RequestRepository;
 import lombok.RequiredArgsConstructor;
-import com.template.service.core.shared.MessageService;
-import org.quartz.SchedulerException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,10 +23,8 @@ import java.util.UUID;
 public class RequestService {
 
     private final RequestRepository requestRepository;
-    private final RequestSchedulerService requestSchedulerService;
-    private final RequestStateService requestStateService;
+    private final RequestProcessingService requestProcessingService;
     private final ObjectMapper objectMapper;
-    private final MessageService messageService;
 
     public RequestAcceptedResponse submitClientCreateRequest(CreateClientRequest createClientRequest) {
         OffsetDateTime now = now();
@@ -44,16 +38,7 @@ public class RequestService {
                 .build();
 
         Request saved = requestRepository.save(request);
-
-        try {
-            requestSchedulerService.scheduleClientCreateRequest(saved.getId());
-        } catch (SchedulerException ex) {
-            requestStateService.markFailed(saved.getId(), writeJson(ApiResult.error(
-                    ApiErrorType.INTERNAL_SERVER_ERROR,
-                    messageService.getMessage("error.request.schedulingFailed")
-            )));
-            throw new IllegalStateException("Failed to schedule request processing for requestId=" + saved.getId(), ex);
-        }
+        requestProcessingService.processClientCreateRequest(saved.getId());
 
         return new RequestAcceptedResponse(saved.getId(), saved.getStatus());
     }
