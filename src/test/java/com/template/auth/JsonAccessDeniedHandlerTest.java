@@ -28,8 +28,8 @@ class JsonAccessDeniedHandlerTest {
         assertThat(response.getContentType()).isEqualTo(MediaType.APPLICATION_JSON.toString());
 
         JsonNode body = objectMapper.readTree(response.getContentAsByteArray());
-        assertThat(body.get("code").asInt()).isEqualTo(40301);
-        assertThat(body.get("message").asText()).isEqualTo("Forbidden");
+        assertThat(body.get("code").asText()).isEqualTo("FORBIDDEN");
+        assertThat(body.get("message").asText()).isEqualTo("You do not have permission to access this resource");
         assertThat(body.hasNonNull("data")).isFalse();
     }
 }

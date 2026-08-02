@@ -80,7 +80,7 @@ class DpopIntegrationIT extends WireMockIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().data()).isNotNull();
-        assertThat(response.getBody().data().getTokenType()).isEqualTo("DPoP");
+        assertThat(response.getBody().data().tokenType()).isEqualTo("DPoP");
         verify(postRequestedFor(urlPathMatching(REALMS_PROTOCOL_OPENID_CONNECT_TOKEN))
                 .withHeader("DPoP", equalTo(dpopProof)));
     }
@@ -123,7 +123,7 @@ class DpopIntegrationIT extends WireMockIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().code()).isZero();
+        assertThat(response.getBody().code()).isEqualTo("OK");
         assertThat(response.getBody().data()).isNotNull();
     }
 

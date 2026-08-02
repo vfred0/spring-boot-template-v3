@@ -72,6 +72,7 @@ class RateLimitingFilterTest {
     @Test
     void appliesRateLimitUsingConfiguredCacheName() throws ServletException, IOException {
         when(messageService.getMessage("api.error.tooManyRequests")).thenReturn("Too many requests");
+        when(messageService.getMessage("api.error.title.tooManyRequests")).thenReturn("Too Many Requests");
         properties.setRules(List.of(rule("login", "/api/auth/login", "loginBuckets", RateLimitProperties.KeyStrategy.IP, Set.of("POST"), 1)));
 
         MockHttpServletRequest first = request("POST", "/api/auth/login", "10.0.0.1");
@@ -87,12 +88,13 @@ class RateLimitingFilterTest {
         assertThat(firstChain.getRequest()).isNotNull();
         assertThat(secondChain.getRequest()).isNull();
         assertThat(secondResponse.getStatus()).isEqualTo(429);
-        assertThat(secondResponse.getContentAsString()).contains("\"code\":42901");
+        assertThat(secondResponse.getContentAsString()).contains("\"code\":\"TOO_MANY_REQUESTS\"");
     }
 
     @Test
     void usesDefaultCacheWhenRuleCacheNameIsBlank() throws ServletException, IOException {
         when(messageService.getMessage("api.error.tooManyRequests")).thenReturn("Too many requests");
+        when(messageService.getMessage("api.error.title.tooManyRequests")).thenReturn("Too Many Requests");
         RateLimitProperties.Rule defaultCacheRule = rule("default-cache", "/api/auth/login", " ", RateLimitProperties.KeyStrategy.IP, Set.of("POST"), 1);
         properties.setRules(List.of(defaultCacheRule));
 
@@ -127,6 +129,7 @@ class RateLimitingFilterTest {
     @Test
     void clearsAllRuleCachesAndResetsLimits() throws ServletException, IOException {
         when(messageService.getMessage("api.error.tooManyRequests")).thenReturn("Too many requests");
+        when(messageService.getMessage("api.error.title.tooManyRequests")).thenReturn("Too Many Requests");
         when(securityService.clientId()).thenReturn("spring-app");
         RateLimitProperties.Rule loginRule = rule("login", "/api/auth/login", "loginBuckets", RateLimitProperties.KeyStrategy.IP, Set.of("POST"), 1);
         RateLimitProperties.Rule clientsRule = rule("clients", "/api/clients/**", "clientsBuckets", RateLimitProperties.KeyStrategy.CLIENT_ID, Set.of("GET"), 1);
@@ -162,6 +165,7 @@ class RateLimitingFilterTest {
     @Test
     void supportsAllKeyStrategies() throws ServletException, IOException {
         when(messageService.getMessage("api.error.tooManyRequests")).thenReturn("Too many requests");
+        when(messageService.getMessage("api.error.title.tooManyRequests")).thenReturn("Too Many Requests");
         when(securityService.clientId()).thenReturn("spring-app");
         when(securityService.username()).thenReturn("user-1");
         RateLimitProperties.Rule usernameRule = rule("username", "/api/u/**", "loginBuckets", RateLimitProperties.KeyStrategy.USERNAME, Set.of("GET"), 1);

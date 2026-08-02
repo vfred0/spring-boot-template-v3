@@ -83,7 +83,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         assertThat(data.phone()).isEqualTo(req.phone());
         assertThat(data.id()).isNotNull();
-        assertThat(finalResponse.code()).isZero();
+        assertThat(finalResponse.code()).isEqualTo("OK");
 
         // Verify persisted
         assertThat(repo.existsByPhone(req.phone())).isTrue();
@@ -141,7 +141,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).isNotNull();
-        assertThat(resp.getBody().code()).isZero();
+        assertThat(resp.getBody().code()).isEqualTo("OK");
 
         var clients = objectMapper.convertValue(resp.getBody().data(), new TypeReference<java.util.List<ClientResponse>>() {});
         assertThat(clients).hasSize(2);

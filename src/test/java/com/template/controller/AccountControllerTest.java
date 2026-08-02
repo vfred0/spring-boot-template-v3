@@ -37,7 +37,7 @@ class AccountControllerTest {
 
         var apiResponse = accountResource.updateBalancePessimistic(request);
 
-        assertThat(apiResponse.code()).isZero();
+        assertThat(apiResponse.code()).isEqualTo("OK");
         assertThat(apiResponse.data()).isEqualTo(response);
         verify(accountService).updateBalancePessimistic(request);
     }
@@ -50,7 +50,7 @@ class AccountControllerTest {
 
         var apiResponse = accountResource.updateBalanceOptimistic(request);
 
-        assertThat(apiResponse.code()).isZero();
+        assertThat(apiResponse.code()).isEqualTo("OK");
         assertThat(apiResponse.data()).isEqualTo(response);
         verify(accountService).updateBalanceOptimistic(request);
     }
@@ -62,7 +62,7 @@ class AccountControllerTest {
 
         var apiResponse = accountResource.getByClientId(1L);
 
-        assertThat(apiResponse.code()).isZero();
+        assertThat(apiResponse.code()).isEqualTo("OK");
         assertThat(apiResponse.data()).isEqualTo(response);
         verify(accountService).getByClientId(1L);
     }

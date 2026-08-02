@@ -26,8 +26,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class KeycloakAuthServiceTest {
 
-    private static final String CLIENT_ID = "client";
-    private static final String CLIENT_SECRET = "secret";
     private static final String REFRESH_TOKEN = "refresh";
 
     @Mock
@@ -46,7 +44,7 @@ class KeycloakAuthServiceTest {
         )).thenReturn(ResponseEntity.ok().body(null));
 
         KeycloakAuthService service = new KeycloakAuthService(rest, props);
-        RefreshRequest request = new RefreshRequest(CLIENT_ID, CLIENT_SECRET);
+        RefreshRequest request = new RefreshRequest();
 
         assertThatThrownBy(() -> service.refresh(request, REFRESH_TOKEN))
                 .isInstanceOf(KeycloakAuthException.class)
@@ -68,7 +66,7 @@ class KeycloakAuthServiceTest {
         )).thenReturn(ResponseEntity.ok("invalid_token"));
 
         KeycloakAuthService service = new KeycloakAuthService(rest, props);
-        SignOutRequest request = new SignOutRequest(CLIENT_ID, CLIENT_SECRET);
+        SignOutRequest request = new SignOutRequest();
 
         assertThatThrownBy(() -> service.logout(request, REFRESH_TOKEN))
                 .isInstanceOf(KeycloakAuthException.class)

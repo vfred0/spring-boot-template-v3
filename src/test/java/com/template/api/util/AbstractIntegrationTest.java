@@ -186,7 +186,7 @@ public abstract class AbstractIntegrationTest {
         return template;
     }
 
-    protected <T> void assertErrorBody(ResponseEntity<ApiResult<T>> response, int expectedCode, Object expectedMessage) {
+    protected <T> void assertErrorBody(ResponseEntity<ApiResult<T>> response, String expectedCode, Object expectedMessage) {
         ApiResult<T> body = response.getBody();
         assertThat(body).as(RESPONSE_BODY_SHOULD_NOT_BE_NULL).isNotNull();
         assertThat(body.code()).as(RESPONSE_CODE_SHOULD_MATCH_EXPECTED).isEqualTo(expectedCode);
@@ -206,7 +206,7 @@ public abstract class AbstractIntegrationTest {
 
     protected <T> void assertErrorStatusAndBody(ResponseEntity<ApiResult<T>> response,
                                             HttpStatus expectedStatus,
-                                            int expectedCode,
+                                            String expectedCode,
                                             Object expectedMessage) {
         assertThat(response.getStatusCode()).as(RESPONSE_HTTP_STATUS_SHOULD_MATCH_EXPECTED).isEqualTo(expectedStatus);
         assertErrorBody(response, expectedCode, expectedMessage);
@@ -314,7 +314,7 @@ public abstract class AbstractIntegrationTest {
                                                                        String clientId,
                                                                        String clientSecret,
                                                                        String dpopProof) {
-        SignInRequest request = new SignInRequest(username, password, clientId, clientSecret);
+        SignInRequest request = new SignInRequest(username, password);
         return requestPostDpop(loginUrl, null, null, dpopProof, request, new ParameterizedTypeReference<>() {});
     }
 
@@ -354,7 +354,7 @@ public abstract class AbstractIntegrationTest {
                                                                String clientId,
                                                                String clientSecret,
                                                                String dpopProof) {
-        SignOutRequest req = new SignOutRequest(clientId, clientSecret);
+        SignOutRequest req = new SignOutRequest();
         return requestPostWithCookie(logoutUrl, refreshToken, dpopProof, req, new ParameterizedTypeReference<>() {});
     }
 
@@ -372,7 +372,7 @@ public abstract class AbstractIntegrationTest {
                                                                           String clientId,
                                                                           String clientSecret,
                                                                           String dpopProof) {
-        RefreshRequest request = new RefreshRequest(clientId, clientSecret);
+        RefreshRequest request = new RefreshRequest();
         return requestPostWithCookie(refreshUrl, refreshToken, dpopProof, request, new ParameterizedTypeReference<>() {});
     }
 

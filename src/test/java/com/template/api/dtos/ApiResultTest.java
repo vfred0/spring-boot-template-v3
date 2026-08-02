@@ -14,7 +14,7 @@ class ApiResultTest {
 
         assertThat(response.status()).isEqualTo(200);
         assertThat(response.code()).isEqualTo("OK");
-        assertThat(response.message()).isEqualTo("OK");
+        assertThat(response.message()).isNull();
         assertThat(response.data()).isEqualTo("payload");
         assertThat(response.errors()).isNull();
         assertThat(response.summary()).isNull();
