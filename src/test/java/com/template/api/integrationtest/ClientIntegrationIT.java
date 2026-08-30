@@ -196,7 +196,9 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
     }
 
     @Test
-    void get_client_unauthorized_after_logout() {
+    void get_client_stillAuthorized_withAccessToken_afterLogout() {
+        // OAuth2 logout revokes the refresh token/session, not an already-issued
+        // access token — that one stays valid, stateless, until it naturally expires.
         Client saved = repo.save(Client.builder().firstName(ALICE).lastName(SMITH).phone("+37060000000").build());
         String accessToken = loginAndGetAccess(USERNAME, USER_PASSWORD);
         String refreshToken = loginAndGetRefresh(USERNAME, USER_PASSWORD);
@@ -207,10 +209,8 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
         ResponseEntity<ApiResult<Void>> logoutResponse = logoutRequest(refreshToken);
         assertThat(logoutResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-        ResponseEntity<ApiResult<Object>> errorResponse = requestGet(clientUrl + "/" + saved.getId(), accessToken);
-        assertErrorStatusAndBody(errorResponse, HttpStatus.UNAUTHORIZED,
-                ApiErrorType.UNAUTHORIZED.code(),
-                ApiErrorType.UNAUTHORIZED.message());
+        ResponseEntity<ApiResult<Object>> afterLogoutResponse = requestGet(clientUrl + "/" + saved.getId(), accessToken);
+        assertThat(afterLogoutResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     @Test
