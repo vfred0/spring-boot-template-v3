@@ -1,6 +1,8 @@
 package com.template.security;
 
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import com.template.config.security.JsonAuthEntryPoint;
 import com.template.config.DpopProperties;
 import com.template.config.dpop.DpopAuthenticationFilter;
@@ -10,32 +12,34 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.DefaultOAuth2AuthenticatedPrincipal;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthentication;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DpopAuthenticationFilterTest {
@@ -49,6 +53,9 @@ class DpopAuthenticationFilterTest {
     @Mock
     private FilterChain filterChain;
 
+    @Mock
+    private OpaqueTokenIntrospector introspector;
+
     private DpopProperties properties;
     private DpopAuthenticationFilter filter;
 
@@ -56,7 +63,7 @@ class DpopAuthenticationFilterTest {
     void setUp() {
         properties = new DpopProperties();
         properties.setEnabled(true);
-        filter = new DpopAuthenticationFilter(properties, validator, authEntryPoint);
+        filter = new DpopAuthenticationFilter(properties, validator, authEntryPoint, Optional.of(introspector));
     }
 
     @AfterEach
@@ -65,59 +72,28 @@ class DpopAuthenticationFilterTest {
     }
 
     @Test
-    void skipsValidationWhenDpopIsDisabled() throws Exception {
+    void skipsWhenDpopIsDisabled() throws Exception {
         properties.setEnabled(false);
-        SecurityContextHolder.getContext().setAuthentication(bearerAuthentication("token", Map.of()));
         MockHttpServletRequest request = request("DPoP token", "proof");
 
         filter.doFilter(request, new MockHttpServletResponse(), filterChain);
 
         verify(filterChain).doFilter(any(), any());
-        verifyNoInteractions(validator, authEntryPoint);
+        verifyNoInteractions(validator, authEntryPoint, introspector);
     }
 
     @Test
-    void skipsValidationWhenAuthenticationMissing() throws Exception {
-        MockHttpServletRequest request = request("DPoP token", "proof");
-
-        filter.doFilter(request, new MockHttpServletResponse(), filterChain);
-
-        verify(filterChain).doFilter(any(), any());
-        verifyNoInteractions(validator, authEntryPoint);
-    }
-
-    @Test
-    void skipsValidationForRegularBearerTokenWithoutDpopBinding() throws Exception {
-        SecurityContextHolder.getContext().setAuthentication(bearerAuthentication("token", Map.of()));
+    void skipsPlainBearerRequests() throws Exception {
         MockHttpServletRequest request = request("Bearer token", null);
 
         filter.doFilter(request, new MockHttpServletResponse(), filterChain);
 
         verify(filterChain).doFilter(any(), any());
-        verifyNoInteractions(validator, authEntryPoint);
-    }
-
-    @Test
-    void rejectsBoundTokenWithoutDpopAuthorizationScheme() throws Exception {
-        SecurityContextHolder.getContext().setAuthentication(
-                bearerAuthentication("token", Map.of("cnf", Map.of("jkt", "thumbprint")))
-        );
-        MockHttpServletRequest request = request("Bearer token", "proof");
-
-        filter.doFilter(request, new MockHttpServletResponse(), filterChain);
-
-        verify(authEntryPoint).commence(any(), any(), argThat(ex ->
-                ex instanceof InsufficientAuthenticationException
-                        && ex.getMessage().contains("authorization scheme is required")));
-        verify(filterChain, never()).doFilter(any(), any());
-        verifyNoInteractions(validator);
+        verifyNoInteractions(validator, authEntryPoint, introspector);
     }
 
     @Test
     void rejectsWhenProofHeaderMissing() throws Exception {
-        SecurityContextHolder.getContext().setAuthentication(
-                bearerAuthentication("token", Map.of("cnf", Map.of("jkt", "thumbprint")))
-        );
         MockHttpServletRequest request = request("DPoP token", null);
 
         filter.doFilter(request, new MockHttpServletResponse(), filterChain);
@@ -126,29 +102,40 @@ class DpopAuthenticationFilterTest {
                 ex instanceof InsufficientAuthenticationException
                         && ex.getMessage().contains("proof is required")));
         verify(filterChain, never()).doFilter(any(), any());
+        verifyNoInteractions(validator, introspector);
+    }
+
+    @Test
+    void rejectsWhenIntrospectionFails() throws Exception {
+        MockHttpServletRequest request = request("DPoP token", "proof");
+        when(introspector.introspect("token")).thenThrow(new IllegalStateException("inactive token"));
+
+        filter.doFilter(request, new MockHttpServletResponse(), filterChain);
+
+        verify(authEntryPoint).commence(any(), any(), argThat(ex ->
+                ex instanceof InsufficientAuthenticationException
+                        && ex.getMessage().contains("Invalid bearer token")));
+        verify(filterChain, never()).doFilter(any(), any());
         verifyNoInteractions(validator);
     }
 
     @Test
-    void validatesProofAndContinuesWhenProofIsCorrect() throws Exception {
-        SecurityContextHolder.getContext().setAuthentication(
-                bearerAuthentication("token", Map.of("cnf", Map.of("jkt", "thumbprint")))
-        );
+    void rejectsWhenNoIntrospectorIsAvailable() throws Exception {
+        filter = new DpopAuthenticationFilter(properties, validator, authEntryPoint, Optional.empty());
         MockHttpServletRequest request = request("DPoP token", "proof");
 
         filter.doFilter(request, new MockHttpServletResponse(), filterChain);
 
-        verify(validator).validate("GET", "http://localhost:8080/api/clients/1", "token", "proof", "thumbprint");
-        verify(filterChain).doFilter(any(), any());
-        verifyNoInteractions(authEntryPoint);
+        verify(authEntryPoint).commence(any(), any(), argThat(ex ->
+                ex instanceof InsufficientAuthenticationException
+                        && ex.getMessage().contains("Invalid bearer token")));
+        verify(filterChain, never()).doFilter(any(), any());
     }
 
     @Test
     void rejectsWhenProofValidationFails() throws Exception {
-        SecurityContextHolder.getContext().setAuthentication(
-                bearerAuthentication("token", Map.of("cnf", Map.of("jkt", "thumbprint")))
-        );
         MockHttpServletRequest request = request("DPoP token", "proof");
+        when(introspector.introspect("token")).thenReturn(principal(Map.of("cnf", Map.of("jkt", "thumbprint"))));
         doThrow(new DpopProofValidationException("bad proof"))
                 .when(validator).validate(any(), any(), any(), any(), any());
 
@@ -161,48 +148,40 @@ class DpopAuthenticationFilterTest {
     }
 
     @Test
-    void validatesJwtAuthenticationAndIncludesQueryStringInUri() throws Exception {
-        SecurityContextHolder.getContext().setAuthentication(
-                jwtAuthentication("jwt-token", Map.of("cnf", Map.of("jkt", "thumbprint")))
-        );
-        MockHttpServletRequest request = request("DPoP jwt-token", "proof", "sort=desc");
+    void authenticatesAndHidesAuthorizationHeaderWhenProofIsValid() throws Exception {
+        MockHttpServletRequest request = request("DPoP token", "proof");
+        when(introspector.introspect("token")).thenReturn(principal(Map.of("cnf", Map.of("jkt", "thumbprint"))));
 
         filter.doFilter(request, new MockHttpServletResponse(), filterChain);
 
-        verify(validator).validate("GET", "http://localhost:8080/api/clients/1?sort=desc",
-                "jwt-token", "proof", "thumbprint");
-        verify(filterChain).doFilter(any(), any());
+        verify(validator).validate(
+                eq("GET"), eq("http://localhost:8080/api/clients/1"), eq("token"), eq("proof"), eq("thumbprint"));
+        assertThat(SecurityContextHolder.getContext().getAuthentication())
+                .isInstanceOf(BearerTokenAuthentication.class);
         verifyNoInteractions(authEntryPoint);
+
+        ArgumentCaptor<ServletRequest> forwarded = ArgumentCaptor.forClass(ServletRequest.class);
+        verify(filterChain).doFilter(forwarded.capture(), any());
+        var wrappedRequest = (HttpServletRequest) forwarded.getValue();
+        assertThat(wrappedRequest.getHeader(HttpHeaders.AUTHORIZATION)).isNull();
     }
 
     @Test
-    void validatesWithNullTokenAndExpectedJktForUnsupportedAuthenticationType() throws Exception {
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(
-                        "user",
-                        "password",
-                        List.of(new SimpleGrantedAuthority("ROLE_CLIENT_GET"))
-                )
-        );
+    void authenticatesWithoutJktWhenTokenIsNotDpopBound() throws Exception {
         MockHttpServletRequest request = request("DPoP token", "proof");
+        when(introspector.introspect("token")).thenReturn(principal(Map.of()));
 
         filter.doFilter(request, new MockHttpServletResponse(), filterChain);
 
-        verify(validator).validate("GET", "http://localhost:8080/api/clients/1", null, "proof", null);
+        verify(validator).validate(eq("GET"), eq("http://localhost:8080/api/clients/1"), eq("token"), eq("proof"), eq(null));
         verify(filterChain).doFilter(any(), any());
-        verifyNoInteractions(authEntryPoint);
     }
 
     private MockHttpServletRequest request(String authorization, String dpopProof) {
-        return request(authorization, dpopProof, null);
-    }
-
-    private MockHttpServletRequest request(String authorization, String dpopProof, String queryString) {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/clients/1");
         request.setScheme("http");
         request.setServerName("localhost");
         request.setServerPort(8080);
-        request.setQueryString(queryString);
         if (authorization != null) {
             request.addHeader(HttpHeaders.AUTHORIZATION, authorization);
         }
@@ -212,37 +191,10 @@ class DpopAuthenticationFilterTest {
         return request;
     }
 
-    private BearerTokenAuthentication bearerAuthentication(String token, Map<String, Object> attributes) {
-        Map<String, Object> principalAttributes = attributes.isEmpty()
-                ? Map.of("sub", "user")
-                : attributes;
-
-        OAuth2AuthenticatedPrincipal principal = new DefaultOAuth2AuthenticatedPrincipal(
-                "user",
-                principalAttributes,
-                List.of(new SimpleGrantedAuthority("ROLE_CLIENT_GET"))
-        );
-        OAuth2AccessToken accessToken = new OAuth2AccessToken(
-                OAuth2AccessToken.TokenType.BEARER,
-                token,
-                Instant.now().minusSeconds(60),
-                Instant.now().plusSeconds(300)
-        );
-        return new BearerTokenAuthentication(principal, accessToken, principal.getAuthorities());
-    }
-
-    private JwtAuthenticationToken jwtAuthentication(String token, Map<String, Object> claims) {
-        Map<String, Object> tokenClaims = claims.isEmpty()
-                ? Map.of("sub", "user")
-                : claims;
-
-        Jwt jwt = Jwt.withTokenValue(token)
-                .header("alg", "RS256")
-                .claims(existingClaims -> existingClaims.putAll(tokenClaims))
-                .issuedAt(Instant.now().minusSeconds(60))
-                .expiresAt(Instant.now().plusSeconds(300))
-                .build();
-
-        return new JwtAuthenticationToken(jwt, List.of(new SimpleGrantedAuthority("ROLE_CLIENT_GET")));
+    private OAuth2AuthenticatedPrincipal principal(Map<String, Object> extraAttributes) {
+        Map<String, Object> attributes = new java.util.HashMap<>(Map.of("sub", "user"));
+        attributes.putAll(extraAttributes);
+        return new DefaultOAuth2AuthenticatedPrincipal(
+                "user", attributes, List.of(new SimpleGrantedAuthority("ROLE_CLIENT_GET")));
     }
 }

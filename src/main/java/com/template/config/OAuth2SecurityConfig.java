@@ -60,8 +60,8 @@ public class OAuth2SecurityConfig {
                 );
 
         http.addFilterAfter(new RequestBodyCaptureFilter(), BearerTokenAuthenticationFilter.class);
-        http.addFilterAfter(dpopAuthenticationFilter, AuthenticationFilter.class);
-        http.addFilterAfter(rateLimitingFilter, DpopAuthenticationFilter.class);
+        http.addFilterBefore(dpopAuthenticationFilter, BearerTokenAuthenticationFilter.class);
+        http.addFilterAfter(rateLimitingFilter, AuthenticationFilter.class);
 
         return http.build();
     }
