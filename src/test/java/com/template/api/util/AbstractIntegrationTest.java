@@ -17,8 +17,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestConstructor;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -40,7 +38,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @ActiveProfiles("test")
-@Testcontainers
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 public abstract class AbstractIntegrationTest {
 
@@ -52,24 +49,29 @@ public abstract class AbstractIntegrationTest {
     public static final String RESPONSE_BODY_SHOULD_NOT_BE_NULL = "Response body should not be null";
     public static final String RESPONSE_DATA_SHOULD_NOT_BE_NULL = "Response data should not be null";
     public static final String RESPONSE_HTTP_STATUS_SHOULD_BE_OK = "Response HTTP status should be OK";
-    public static final String RESPONSE_CODE_SHOULD_BE_ZERO = "Response code should be zero";
+    public static final String RESPONSE_CODE_SHOULD_BE_SUCCESS = "Response code should mark success";
     public static final String RESPONSE_HTTP_STATUS_SHOULD_MATCH_EXPECTED = "Response HTTP status should match expected";
     public static final String RESPONSE_CODE_SHOULD_MATCH_EXPECTED = "Response code should match expected";
     private static final String RESPONSE_MESSAGE_SHOULD_NOT_BE_NULL = "Response message should not be null";
     public static final String FILTER_CONFIG_CACHE = "filterConfigCache";
 
-    @Container
-    protected static PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16")
+    // Singleton Container pattern (Testcontainers' own recommended approach for a
+    // container shared across MULTIPLE top-level test classes): started once, eagerly,
+    // with no @Testcontainers/@Container lifecycle annotation. Those annotations each
+    // register their own per-class shutdown callback, so with several separate test
+    // classes extending this base, the container gets stopped after the FIRST class
+    // finishes while later classes' cached Spring context still points at its old port.
+    protected static final PostgreSQLContainer pg = new PostgreSQLContainer("postgres:16")
             .withDatabaseName(DB_NAME)
             .withUsername(DB_USER)
-            .withPassword(DB_PASS)
-            .withReuse(true);
+            .withPassword(DB_PASS);
+
+    static {
+        pg.start();
+    }
 
     @DynamicPropertySource
     static void registerDatasource(DynamicPropertyRegistry registry) {
-        if (!pg.isRunning()) {
-            pg.start();
-        }
         registry.add("spring.datasource.url", pg::getJdbcUrl);
         registry.add("spring.datasource.username", pg::getUsername);
         registry.add("spring.datasource.password", pg::getPassword);
@@ -221,7 +223,7 @@ public abstract class AbstractIntegrationTest {
 
         ApiResult<T> api = response.getBody();
         assertThat(api).as(RESPONSE_BODY_SHOULD_NOT_BE_NULL).isNotNull();
-        assertThat(api.code()).as(RESPONSE_CODE_SHOULD_BE_ZERO).isEqualTo(0);
+        assertThat(api.status()).as(RESPONSE_CODE_SHOULD_BE_SUCCESS).isEqualTo(expectedStatus.value());
 
         Object raw = api.data();
         assertThat(raw).as(RESPONSE_DATA_SHOULD_NOT_BE_NULL).isNotNull();

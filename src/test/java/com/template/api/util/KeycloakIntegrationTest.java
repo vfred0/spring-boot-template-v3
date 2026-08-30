@@ -8,7 +8,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.springframework.cache.CacheManager;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.junit.jupiter.Container;
 
 import java.io.InputStream;
 
@@ -22,10 +21,16 @@ public abstract class KeycloakIntegrationTest extends AbstractIntegrationTest {
         super(props, cacheManager, rateLimitingFilter);
     }
 
-    @Container
-    protected static KeycloakContainer keycloak = new KeycloakContainer("quay.io/keycloak/keycloak:26.0.0")
-            .withRealmImportFile("keycloak/realm-export.json")
-            .withReuse(true);
+    // Singleton Container pattern (see AbstractIntegrationTest.pg for the full rationale):
+    // started once, eagerly, with no @Testcontainers/@Container lifecycle annotation so it
+    // survives across every subclass (AccountIntegrationIT, ClientIntegrationIT,
+    // KeycloakIntegrationIT, ...) sharing this base within one test run.
+    protected static final KeycloakContainer keycloak = new KeycloakContainer("quay.io/keycloak/keycloak:26.0.0")
+            .withRealmImportFile("keycloak/realm-export.json");
+
+    static {
+        keycloak.start();
+    }
 
     @BeforeAll
     static void checkDockerAvailable() {

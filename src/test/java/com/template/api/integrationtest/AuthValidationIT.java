@@ -14,6 +14,9 @@ import org.springframework.http.*;
 import com.template.config.security.RateLimitingFilter;
 
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = MainApplication.class)
 class AuthValidationIT extends AbstractIntegrationTest {
@@ -26,29 +29,32 @@ class AuthValidationIT extends AbstractIntegrationTest {
 
     @Test
     void login_emptyFields_badRequest() {
-        ResponseEntity<ApiResult<TokenResponse>> response = loginRequest("", "", "", "");
+        ResponseEntity<ApiResult<TokenResponse>> response = loginRequest("", "");
 
-        Set<String> expected = Set.of(
-                "username: Username is required",
-                "clientId: ClientId is required",
-                "password: Password is required",
-                "clientSecret: ClientSecret is required"
-        );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ApiResult<TokenResponse> body = response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.code()).isEqualTo(ApiErrorType.BAD_REQUEST.code());
+        assertThat(body.message()).isEqualTo(ApiErrorType.BAD_REQUEST.message());
 
-        assertErrorStatusAndBody(response, HttpStatus.BAD_REQUEST,
-                ApiErrorType.BAD_REQUEST.code(), expected);
+        Set<String> fieldErrors = body.errors().stream()
+                .map(e -> e.property() + ": " + e.message())
+                .collect(Collectors.toSet());
+        assertThat(fieldErrors).isEqualTo(Set.of(
+                "username: El nombre de usuario es requerido",
+                "password: La contraseña es requerida"
+        ));
     }
 
+    // RefreshRequest carries no client-submitted fields (it's the refresh_token cookie
+    // that matters), so there's no body to fail @Valid on. The real validation path is
+    // AuthResource.refresh()'s own guard for a missing/blank refresh_token cookie.
     @Test
-    void refresh_emptyBody_badRequest() {
-        ResponseEntity<ApiResult<TokenResponse>> response = refreshRequest("any-token", "", "");
+    void refresh_missingCookie_unauthorized() {
+        ResponseEntity<ApiResult<TokenResponse>> response = refreshRequest(null);
 
-        Set<String> expected = Set.of(
-                "clientId: ClientId is required",
-                "clientSecret: ClientSecret is required"
-        );
-
-        assertErrorStatusAndBody(response, HttpStatus.BAD_REQUEST,
-                ApiErrorType.BAD_REQUEST.code(), expected);
+        assertErrorStatusAndBody(response, HttpStatus.UNAUTHORIZED,
+                ApiErrorType.INVALID_GRANT.code(),
+                "Tu sesión no pudo ser renovada. Inicia sesión nuevamente.");
     }
 }

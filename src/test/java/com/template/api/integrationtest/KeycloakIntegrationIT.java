@@ -51,7 +51,7 @@ class KeycloakIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.UNAUTHORIZED,
                 ApiErrorType.UNAUTHORIZED.code(),
-                INVALID_GRANT);
+                "Verifica tu usuario y contraseña.");
     }
 
     @Test
@@ -60,7 +60,7 @@ class KeycloakIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.UNAUTHORIZED,
                 ApiErrorType.UNAUTHORIZED.code(),
-                INVALID_GRANT);
+                "Verifica tu usuario y contraseña.");
     }
 
     // ------------------------------------------------------------
@@ -102,7 +102,7 @@ class KeycloakIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(refreshResponse, HttpStatus.BAD_REQUEST,
                 ApiErrorType.INVALID_GRANT.code(),
-                INVALID_GRANT);
+                "Tu sesión no pudo ser renovada. Inicia sesión nuevamente.");
     }
 
     // ------------------------------------------------------------
@@ -124,6 +124,6 @@ class KeycloakIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.BAD_REQUEST,
                 ApiErrorType.INVALID_TOKEN.code(),
-                INVALID_GRANT);
+                "Ocurrió un error al cerrar tu sesión.");
     }
 }

@@ -27,7 +27,7 @@ public class CustomerBulkCreateTask {
     private final AtomicInteger remainingErrors = new AtomicInteger(1);
 
     @Bean
-    public OneTimeTask<CustomerRequestDto> customerBulkCreateTask(Mapper mapper) {
+    public OneTimeTask<CustomerRequestDto> customerBulkCreateOneTimeTask(Mapper mapper) {
         return Tasks.oneTime(CUSTOMER_BULK_CREATE)
                 .execute((instance, ctx) -> processItem(instance.getData(), mapper));
     }

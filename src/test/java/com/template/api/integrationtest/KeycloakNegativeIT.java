@@ -49,7 +49,7 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
         );
 
         assertErrorStatusAndBody(response, HttpStatus.INTERNAL_SERVER_ERROR,
-                ApiErrorType.UNAUTHORIZED.code(), INVALID_GRANT);
+                ApiErrorType.UNAUTHORIZED.code(), "Verifica tu usuario y contraseña.");
     }
 
     @Test
@@ -67,9 +67,9 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
                 "test-secret"
         );
 
-        assertErrorStatusAndBody(response, HttpStatus.INTERNAL_SERVER_ERROR,
-                ApiErrorType.INTERNAL_SERVER_ERROR.code(),
-                ApiErrorType.INTERNAL_SERVER_ERROR.message());
+        assertErrorStatusAndBody(response, HttpStatus.SERVICE_UNAVAILABLE,
+                ApiErrorType.SERVICE_UNAVAILABLE.code(),
+                "El servicio no está disponible temporalmente. Intenta más tarde.");
     }
 
     @Test
@@ -89,7 +89,7 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.INTERNAL_SERVER_ERROR,
                 ApiErrorType.INTERNAL_SERVER_ERROR.code(),
-                ApiErrorType.INTERNAL_SERVER_ERROR.message());
+                "Intenta de nuevo en unos minutos.");
     }
 
     // ------------------------------------------------------------
@@ -113,7 +113,7 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.UNAUTHORIZED,
                 ApiErrorType.UNAUTHORIZED.code(),
-                INVALID_GRANT);
+                "Verifica tu usuario y contraseña.");
      }
 
     @Test
@@ -133,7 +133,7 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.BAD_REQUEST,
                 ApiErrorType.UNAUTHORIZED.code(),
-                INVALID_GRANT);
+                "Verifica tu usuario y contraseña.");
     }
 
     @Test
@@ -153,7 +153,7 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.UNAUTHORIZED,
                 ApiErrorType.UNAUTHORIZED.code(),
-                INVALID_CLIENT);
+                "Verifica tu usuario y contraseña.");
     }
 
     // ------------------------------------------------------------
@@ -176,7 +176,7 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.BAD_REQUEST,
                 ApiErrorType.INVALID_GRANT.code(),
-                INVALID_GRANT);
+                "Tu sesión no pudo ser renovada. Inicia sesión nuevamente.");
     }
 
     @Test
@@ -195,7 +195,7 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.BAD_REQUEST,
                 ApiErrorType.INVALID_GRANT.code(),
-                INVALID_GRANT);
+                "Tu sesión no pudo ser renovada. Inicia sesión nuevamente.");
     }
 
     // ------------------------------------------------------------
@@ -218,7 +218,7 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.BAD_REQUEST,
                 ApiErrorType.INVALID_TOKEN.code(),
-                INVALID_GRANT);
+                "Ocurrió un error al cerrar tu sesión.");
     }
 
     @Test
@@ -237,7 +237,7 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.SERVICE_UNAVAILABLE,
                 ApiErrorType.INVALID_TOKEN.code(),
-                INVALID_GRANT);
+                "Ocurrió un error al cerrar tu sesión.");
     }
 
     // ------------------------------------------------------------
@@ -257,9 +257,9 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
                 "test-secret"
         );
 
-        assertErrorStatusAndBody(response, HttpStatus.INTERNAL_SERVER_ERROR,
-                ApiErrorType.INTERNAL_SERVER_ERROR.code(),
-                ApiErrorType.INTERNAL_SERVER_ERROR.message());
+        assertErrorStatusAndBody(response, HttpStatus.SERVICE_UNAVAILABLE,
+                ApiErrorType.SERVICE_UNAVAILABLE.code(),
+                "El servicio no está disponible temporalmente. Intenta más tarde.");
     }
 
     @Test
@@ -277,6 +277,6 @@ class KeycloakNegativeIT extends WireMockIntegrationTest {
 
         assertErrorStatusAndBody(response, HttpStatus.BAD_REQUEST,
                 ApiErrorType.UNAUTHORIZED.code(),
-                INVALID_GRANT);
+                "Verifica tu usuario y contraseña.");
     }
 }
