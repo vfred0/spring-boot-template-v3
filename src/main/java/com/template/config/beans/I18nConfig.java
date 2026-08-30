@@ -16,6 +16,11 @@ public class I18nConfig {
     private static final Locale DEFAULT_LOCALE = Locale.forLanguageTag("es");
 
     @Bean
+    public Locale defaultLocale() {
+        return DEFAULT_LOCALE;
+    }
+
+    @Bean
     public MessageSource messageSource() {
         ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
         messageSource.setBasename("messages");

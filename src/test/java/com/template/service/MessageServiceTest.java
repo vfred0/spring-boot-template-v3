@@ -26,14 +26,14 @@ class MessageServiceTest {
         messageSource.setBasename("messages");
         messageSource.setDefaultEncoding("UTF-8");
         messageSource.setDefaultLocale(Locale.ENGLISH);
-
+    
         AcceptHeaderLocaleResolver localeResolver = new AcceptHeaderLocaleResolver();
-
-        MessageService messageService = new MessageService(messageSource, localeResolver);
-
+    
+        MessageService messageService = new MessageService(messageSource, localeResolver, Locale.ENGLISH);
+    
         String message = messageService.getMessage("error.client.notFound", new Object[]{"123"});
         System.out.println("MessageService result: " + message);
-
+    
         assertEquals("Client with id=123 not found", message);
     }
 
@@ -43,14 +43,14 @@ class MessageServiceTest {
         messageSource.setBasename("messages");
         messageSource.setDefaultEncoding("UTF-8");
         messageSource.setDefaultLocale(Locale.ENGLISH);
-
+    
         AcceptHeaderLocaleResolver localeResolver = new AcceptHeaderLocaleResolver();
-
-        MessageService messageService = new MessageService(messageSource, localeResolver);
-
+    
+        MessageService messageService = new MessageService(messageSource, localeResolver, Locale.ENGLISH);
+    
         String message = messageService.getMessage("error.validation.failed");
         System.out.println("MessageService result: " + message);
-
+    
         assertEquals("Validation failed", message);
     }
 }

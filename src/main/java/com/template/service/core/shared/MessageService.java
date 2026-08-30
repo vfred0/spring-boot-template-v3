@@ -16,6 +16,7 @@ public class MessageService {
 
     private final MessageSource messageSource;
     private final LocaleResolver localeResolver;
+    private final Locale defaultLocale;
 
     public String getMessage(String code) {
         Locale locale = getCurrentLocale();
@@ -36,6 +37,6 @@ public class MessageService {
         if (requestAttributes != null) {
             return localeResolver.resolveLocale(requestAttributes.getRequest());
         }
-        return Locale.ENGLISH;
+        return defaultLocale;
     }
 }
