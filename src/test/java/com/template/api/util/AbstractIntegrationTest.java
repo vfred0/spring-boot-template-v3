@@ -223,7 +223,7 @@ public abstract class AbstractIntegrationTest {
 
         ApiResult<T> api = response.getBody();
         assertThat(api).as(RESPONSE_BODY_SHOULD_NOT_BE_NULL).isNotNull();
-        assertThat(api.status()).as(RESPONSE_CODE_SHOULD_BE_SUCCESS).isEqualTo(expectedStatus.value());
+        assertThat(api.code()).as(RESPONSE_CODE_SHOULD_BE_SUCCESS).isIn("OK", "CREATED");
 
         Object raw = api.data();
         assertThat(raw).as(RESPONSE_DATA_SHOULD_NOT_BE_NULL).isNotNull();

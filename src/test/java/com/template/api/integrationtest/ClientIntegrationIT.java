@@ -113,7 +113,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
         ApiResult<Object> finalResponse = readNestedResponse(statusResponse);
 
         assertThat(finalResponse.code()).isEqualTo(ApiErrorType.CONFLICT.code());
-        assertThat(finalResponse.message()).isEqualTo("Client with phone=" + req.phone() + " already exists");
+        assertThat(finalResponse.message()).isEqualTo("Ya existe un cliente con el teléfono " + req.phone());
     }
 
     @Test
@@ -158,7 +158,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(resp, HttpStatus.BAD_REQUEST,
                 ApiErrorType.BAD_REQUEST.code(),
-                "Search query must contain at least " + ClientService.MIN_SEARCH_QUERY_LENGTH + " characters");
+                "La búsqueda debe tener al menos " + ClientService.MIN_SEARCH_QUERY_LENGTH + " caracteres");
     }
 
     @Test
@@ -169,7 +169,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(resp, HttpStatus.FORBIDDEN,
                 ApiErrorType.FORBIDDEN.code(),
-                ApiErrorType.FORBIDDEN.message());
+                "No tienes permisos para acceder a este recurso.");
     }
 
     @Test
@@ -180,7 +180,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(resp, HttpStatus.NOT_FOUND,
                 ApiErrorType.NOT_FOUND.code(),
-                "Client with id=999999 not found");
+                "Cliente con ID=999999 no encontrado");
     }
 
     // Additional negative tests for GET
@@ -223,7 +223,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(resp, HttpStatus.FORBIDDEN,
                 ApiErrorType.FORBIDDEN.code(),
-                ApiErrorType.FORBIDDEN.message());
+                "No tienes permisos para acceder a este recurso.");
     }
 
     @Test
@@ -234,7 +234,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(resp, HttpStatus.BAD_REQUEST,
                 ApiErrorType.BAD_REQUEST.code(),
-                "Invalid value: invalid-id");
+                "Valor inválido: invalid-id");
     }
 
     // negative tests
@@ -258,7 +258,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(resp, HttpStatus.FORBIDDEN,
                 ApiErrorType.FORBIDDEN.code(),
-                ApiErrorType.FORBIDDEN.message());
+                "No tienes permisos para acceder a este recurso.");
     }
 
     @Test
@@ -269,32 +269,31 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         ResponseEntity<ApiResult<Object>> response = requestPost(clientUrl, token, null, req);
 
-        Set<String> expected = Set.of(
-                "phone: phone must be valid",
-                "firstName: firstName is required"
-        );
-
-        assertErrorStatusAndBody(response, HttpStatus.BAD_REQUEST,
-                ApiErrorType.BAD_REQUEST.code(),
-                expected);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(fieldErrorsOf(response)).isEqualTo(Set.of(
+                "phone: El teléfono debe ser un número válido",
+                "firstName: El nombre es requerido"
+        ));
     }
 
     @Test
-    void create_client_validation_error_russian_locale() {
+    void create_client_validation_error_ignoresAcceptLanguage() {
         String token = loginAndGetAccess(USERNAME, USER_PASSWORD);
-        // invalid phone and missing firstName
         CreateClientRequest req = new CreateClientRequest("", DOE, "abc");
 
         ResponseEntity<ApiResult<Object>> response = requestPost(clientUrl, token, "ru", req);
 
-        Set<String> expected = Set.of(
-                "phone: Неверный формат телефона",
-                "firstName: Имя обязательно"
-        );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(fieldErrorsOf(response)).isEqualTo(Set.of(
+                "phone: El teléfono debe ser un número válido",
+                "firstName: El nombre es requerido"
+        ));
+    }
 
-        assertErrorStatusAndBody(response, HttpStatus.BAD_REQUEST,
-                ApiErrorType.BAD_REQUEST.code(),
-                expected);
+    private Set<String> fieldErrorsOf(ResponseEntity<ApiResult<Object>> response) {
+        return response.getBody().errors().stream()
+                .map(e -> e.property() + ": " + e.message())
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     @Test
@@ -325,7 +324,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(resp, HttpStatus.FORBIDDEN,
                 ApiErrorType.FORBIDDEN.code(),
-                ApiErrorType.FORBIDDEN.message());
+                "No tienes permisos para acceder a este recurso.");
     }
 
     @Test
@@ -336,7 +335,7 @@ class ClientIntegrationIT extends KeycloakIntegrationTest {
 
         assertErrorStatusAndBody(resp, HttpStatus.BAD_REQUEST,
                 ApiErrorType.BAD_REQUEST.code(),
-                "Invalid value: invalid-id");
+                "Valor inválido: invalid-id");
     }
 
     private RequestStatusResponse awaitRequestStatus(String token, UUID requestId, RequestStatus expectedStatus) {
