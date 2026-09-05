@@ -1,3 +1,9 @@
+# 0.4.1 (2026-09-05)
+
+### Spring Boot Template
+
+ * chore  **deps:** bump spring boot to 4.1.1 ([4228c5c](https://github.com/vfred0/spring-boot-template-v3/commit/4228c5c))
+
 # 0.4.0 (2026-06-18)
 
 ### Spring Boot Template
